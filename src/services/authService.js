@@ -208,10 +208,7 @@ export async function addEmail(authUserId, email) {
     return { message: "Email saved. Please verify it to complete setup." };
 }
 
-// FIX (Issue 2): invalidate any prior unused EMAIL_VERIFICATION OTPs before
-// creating a new one, so exactly one is ever valid at a time.
-// FIX (Issue 1): if the email fails to send, delete the OTP row we just
-// inserted rather than leaving an undeliverable code sitting in the table.
+
 export async function sendEmailVerificationOtp(authUserId) {
     const { data: user, error: lookupError } = await supabaseAdmin
         .from("users")
@@ -450,10 +447,7 @@ export async function verifyEmailOtp(authUserId, submittedOtp) {
     return { message: "Email verified successfully." };
 }
 
-// FIX (Issue 6): same vague response whether the account doesn't exist OR
-// exists without a verified email — no longer leaks which case it is.
-// FIX (Issue 2): invalidate prior unused PASSWORD_RESET OTPs first.
-// FIX (Issue 1): roll back the OTP row if the email fails to send.
+
 export async function forgotPassword({ institution_identifier }) {
     const identifier = institution_identifier?.trim();
     const genericResponse = { message: "If this account exists, a reset code has been sent." };
@@ -471,8 +465,7 @@ export async function forgotPassword({ institution_identifier }) {
         .single();
 
     if (lookupError || !user || !user.email || !user.email_verified_at) {
-        // account doesn't exist, OR exists without a verified email —
-        // identical response either way, so nothing is leaked
+       
         return genericResponse;
     }
 
