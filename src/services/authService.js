@@ -2,13 +2,27 @@ import { supabase, supabaseAdmin } from "../config/supabase.js";
 import { generateDefaultPassword } from "../utils/generatePassword.js";
 import { validatePassword } from "../utils/validatePassword.js";
 import { generateOtp, hashOtp, otpExpiry } from "../utils/otp.js";
+import { sendOtpEmail } from "../utils/sendEmail.js";
 
-export async function adminCreateUser({ full_name, institution_identifier, email }) {
+export async function adminCreateUser({
+    full_name,
+    institution_identifier,
+    email,
+    role,
+    department_id,
+    scope_type,
+}) {
     const name = full_name?.trim();
     const identifier = institution_identifier?.trim();
 
-    if (!name || !identifier) {
-        const err = new Error("full_name and institution_identifier are required");
+    if (!name || !identifier || !role) {
+        const err = new Error("full_name, institution_identifier, and role are required");
+        err.statusCode = 400;
+        throw err;
+    }
+
+    if ((role === "Student" || role === "Lecturer") && !department_id) {
+        const err = new Error(`department_id is required for role: ${role}`);
         err.statusCode = 400;
         throw err;
     }
@@ -45,11 +59,65 @@ export async function adminCreateUser({ full_name, institution_identifier, email
         throw err;
     }
 
+    const { data: roleRow, error: roleError } = await supabaseAdmin
+        .from("roles")
+        .select("id")
+        .eq("name", role)
+        .single();
+
+    if (roleError || !roleRow) {
+        await supabaseAdmin.auth.admin.deleteUser(data.user.id);
+        const err = new Error(`Invalid role: ${role}`);
+        err.statusCode = 400;
+        throw err;
+    }
+
+    const { error: roleAssignError } = await supabaseAdmin
+        .from("user_roles")
+        .insert({
+            user_id: data.user.id,
+            role_id: roleRow.id,
+            scope_type: role === "Monitor" ? scope_type : null,
+            scope_id: role === "Monitor" ? department_id : null,
+        });
+
+    if (roleAssignError) {
+        await supabaseAdmin.auth.admin.deleteUser(data.user.id);
+        const err = new Error(roleAssignError.message);
+        err.statusCode = 500;
+        throw err;
+    }
+
+    if (role === "Student") {
+        const { error: extError } = await supabaseAdmin
+            .from("students")
+            .insert({ user_id: data.user.id, department_id });
+
+        if (extError) {
+            await supabaseAdmin.auth.admin.deleteUser(data.user.id);
+            const err = new Error(extError.message);
+            err.statusCode = 500;
+            throw err;
+        }
+    } else if (role === "Lecturer") {
+        const { error: extError } = await supabaseAdmin
+            .from("staff")
+            .insert({ user_id: data.user.id, department_id });
+
+        if (extError) {
+            await supabaseAdmin.auth.admin.deleteUser(data.user.id);
+            const err = new Error(extError.message);
+            err.statusCode = 500;
+            throw err;
+        }
+    }
+
     return {
         id: data.user.id,
         institution_identifier: identifier,
         full_name: name,
         email: email || null,
+        role,
         default_password: DEFAULT_PASSWORD,
     };
 }
@@ -140,6 +208,10 @@ export async function addEmail(authUserId, email) {
     return { message: "Email saved. Please verify it to complete setup." };
 }
 
+// FIX (Issue 2): invalidate any prior unused EMAIL_VERIFICATION OTPs before
+// creating a new one, so exactly one is ever valid at a time.
+// FIX (Issue 1): if the email fails to send, delete the OTP row we just
+// inserted rather than leaving an undeliverable code sitting in the table.
 export async function sendEmailVerificationOtp(authUserId) {
     const { data: user, error: lookupError } = await supabaseAdmin
         .from("users")
@@ -165,19 +237,39 @@ export async function sendEmailVerificationOtp(authUserId) {
         throw err;
     }
 
+    // invalidate any previous unused OTPs for this purpose
+    await supabaseAdmin
+        .from("otp_codes")
+        .update({ used_at: new Date().toISOString() })
+        .eq("user_id", authUserId)
+        .eq("purpose", "EMAIL_VERIFICATION")
+        .is("used_at", null);
+
     const otp = generateOtp();
 
-    const { error: insertError } = await supabaseAdmin
+    const { data: insertedOtp, error: insertError } = await supabaseAdmin
         .from("otp_codes")
         .insert({
             user_id: authUserId,
             code: hashOtp(otp),
             purpose: "EMAIL_VERIFICATION",
             expires_at: otpExpiry(10),
-        });
+        })
+        .select()
+        .single();
 
     if (insertError) {
         const err = new Error(insertError.message);
+        err.statusCode = 500;
+        throw err;
+    }
+
+    try {
+        await sendOtpEmail(user.email, otp, "EMAIL_VERIFICATION");
+    } catch (emailError) {
+        // rollback: an OTP nobody received is worse than useless
+        await supabaseAdmin.from("otp_codes").delete().eq("id", insertedOtp.id);
+        const err = new Error("Failed to send verification email. Please try again.");
         err.statusCode = 500;
         throw err;
     }
@@ -287,6 +379,12 @@ export async function verifyEmailOtp(authUserId, submittedOtp) {
         .eq("id", authUserId)
         .single();
 
+    if (userLookupError || !currentUser) {
+        const err = new Error("User not found");
+        err.statusCode = 404;
+        throw err;
+    }
+
     if (currentUser.email_verified_at) {
         const err = new Error("Email is already verified.");
         err.statusCode = 400;
@@ -333,14 +431,8 @@ export async function verifyEmailOtp(authUserId, submittedOtp) {
         .update({ used_at: new Date().toISOString() })
         .eq("id", otpRecord.id);
 
-    const { data: user } = await supabaseAdmin
-        .from("users")
-        .select("email")
-        .eq("id", authUserId)
-        .single();
-
     await supabaseAdmin.auth.admin.updateUserById(authUserId, {
-        email: user.email,
+        email: currentUser.email,
         email_confirm: true,
     });
 
@@ -356,4 +448,202 @@ export async function verifyEmailOtp(authUserId, submittedOtp) {
     }
 
     return { message: "Email verified successfully." };
+}
+
+// FIX (Issue 6): same vague response whether the account doesn't exist OR
+// exists without a verified email — no longer leaks which case it is.
+// FIX (Issue 2): invalidate prior unused PASSWORD_RESET OTPs first.
+// FIX (Issue 1): roll back the OTP row if the email fails to send.
+export async function forgotPassword({ institution_identifier }) {
+    const identifier = institution_identifier?.trim();
+    const genericResponse = { message: "If this account exists, a reset code has been sent." };
+
+    if (!identifier) {
+        const err = new Error("institution_identifier is required");
+        err.statusCode = 400;
+        throw err;
+    }
+
+    const { data: user, error: lookupError } = await supabaseAdmin
+        .from("users")
+        .select("id, email, email_verified_at")
+        .eq("institution_identifier", identifier)
+        .single();
+
+    if (lookupError || !user || !user.email || !user.email_verified_at) {
+        // account doesn't exist, OR exists without a verified email —
+        // identical response either way, so nothing is leaked
+        return genericResponse;
+    }
+
+    await supabaseAdmin
+        .from("otp_codes")
+        .update({ used_at: new Date().toISOString() })
+        .eq("user_id", user.id)
+        .eq("purpose", "PASSWORD_RESET")
+        .is("used_at", null);
+
+    const otp = generateOtp();
+
+    const { data: insertedOtp, error: insertError } = await supabaseAdmin
+        .from("otp_codes")
+        .insert({
+            user_id: user.id,
+            code: hashOtp(otp),
+            purpose: "PASSWORD_RESET",
+            expires_at: otpExpiry(10),
+        })
+        .select()
+        .single();
+
+    if (insertError) {
+        const err = new Error(insertError.message);
+        err.statusCode = 500;
+        throw err;
+    }
+
+    try {
+        await sendOtpEmail(user.email, otp, "PASSWORD_RESET");
+    } catch (emailError) {
+        await supabaseAdmin.from("otp_codes").delete().eq("id", insertedOtp.id);
+        const err = new Error("Failed to send reset code. Please try again.");
+        err.statusCode = 500;
+        throw err;
+    }
+
+    const response = { ...genericResponse };
+
+    if (process.env.NODE_ENV === "development") {
+        response.otp = otp;
+    }
+
+    return response;
+}
+
+async function findValidResetOtp(userId, submittedOtp) {
+    const hashedSubmitted = hashOtp(submittedOtp);
+
+    const { data: otpRecord, error: lookupError } = await supabaseAdmin
+        .from("otp_codes")
+        .select("id, code, expires_at, used_at")
+        .eq("user_id", userId)
+        .eq("purpose", "PASSWORD_RESET")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+    if (lookupError || !otpRecord) {
+        const err = new Error("No reset code found. Please request a new one.");
+        err.statusCode = 400;
+        throw err;
+    }
+
+    if (otpRecord.used_at) {
+        const err = new Error("This reset code has already been used.");
+        err.statusCode = 400;
+        throw err;
+    }
+
+    if (new Date(otpRecord.expires_at) < new Date()) {
+        const err = new Error("This reset code has expired. Please request a new one.");
+        err.statusCode = 400;
+        throw err;
+    }
+
+    if (otpRecord.code !== hashedSubmitted) {
+        const err = new Error("Incorrect reset code.");
+        err.statusCode = 400;
+        throw err;
+    }
+
+    return otpRecord;
+}
+
+export async function verifyResetOtp({ institution_identifier, otp }) {
+    const identifier = institution_identifier?.trim();
+
+    if (!identifier || !otp) {
+        const err = new Error("institution_identifier and otp are required");
+        err.statusCode = 400;
+        throw err;
+    }
+
+    const { data: user, error: lookupError } = await supabaseAdmin
+        .from("users")
+        .select("id")
+        .eq("institution_identifier", identifier)
+        .single();
+
+    if (lookupError || !user) {
+        const err = new Error("Incorrect reset code.");
+        err.statusCode = 400;
+        throw err;
+    }
+
+    await findValidResetOtp(user.id, otp);
+
+    return { message: "Code verified. You may now reset your password." };
+}
+
+export async function resetPassword({ institution_identifier, otp, newPassword }) {
+    const identifier = institution_identifier?.trim();
+
+    if (!identifier || !otp) {
+        const err = new Error("institution_identifier and otp are required");
+        err.statusCode = 400;
+        throw err;
+    }
+
+    const validationError = validatePassword(newPassword);
+    if (validationError) {
+        const err = new Error(validationError);
+        err.statusCode = 400;
+        throw err;
+    }
+
+    const { data: user, error: lookupError } = await supabaseAdmin
+        .from("users")
+        .select("id")
+        .eq("institution_identifier", identifier)
+        .single();
+
+    if (lookupError || !user) {
+        const err = new Error("Incorrect reset code.");
+        err.statusCode = 400;
+        throw err;
+    }
+
+    const otpRecord = await findValidResetOtp(user.id, otp);
+
+    const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+        user.id,
+        { password: newPassword }
+    );
+
+    if (authError) {
+        const err = new Error(authError.message);
+        err.statusCode = 500;
+        throw err;
+    }
+
+    await supabaseAdmin
+        .from("otp_codes")
+        .update({ used_at: new Date().toISOString() })
+        .eq("id", otpRecord.id);
+
+    const { error: updateError } = await supabaseAdmin
+        .from("users")
+        .update({
+            is_default_password: false,
+            last_login_at: new Date().toISOString(),
+        })
+        .eq("id", user.id);
+
+    if (updateError) {
+        const err = new Error(updateError.message);
+        err.statusCode = 500;
+        throw err;
+    }
+
+    return { message: "Password reset successfully. You can now log in." };
 }

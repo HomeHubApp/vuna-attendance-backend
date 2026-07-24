@@ -86,3 +86,32 @@ export async function verifyEmailOtp(req, res) {
         return res.status(status).json({ error: error.message });
     }
 }
+export async function forgotPassword(req, res) {
+    try {
+        const result = await authService.forgotPassword(req.body || {});
+        return res.status(200).json(result);
+    } catch (error) {
+        const status = error.statusCode || 500;
+        return res.status(status).json({ error: error.message });
+    }
+}
+
+export async function verifyResetOtp(req, res) {
+    try {
+        const result = await authService.verifyResetOtp(req.body || {});
+        return res.status(200).json(result);
+    } catch (error) {
+        const status = error.statusCode || 500;
+        return res.status(status).json({ error: error.message });
+    }
+}
+
+export async function resetPassword(req, res) {
+    try {
+        const result = await authService.resetPassword(req.body || {});
+        return res.status(200).json(result);
+    } catch (error) {
+        const status = error.statusCode || 500;
+        return res.status(status).json({ error: error.message });
+    }
+}
