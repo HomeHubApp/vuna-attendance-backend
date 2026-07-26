@@ -3,8 +3,7 @@ import { generateDefaultPassword } from "../utils/generatePassword.js";
 import { validatePassword } from "../utils/validatePassword.js";
 import { generateOtp, hashOtp, otpExpiry } from "../utils/otp.js";
 import { sendOtpEmail } from "../utils/sendEmail.js";
-import { ROLES } from "../constants/roles.js";
-
+import { ROLES, STAFF_ROLES, UNIVERSITY_DOMAIN } from "../constants/roles.js";
 export async function adminCreateUser({
     full_name,
     institution_identifier,
@@ -152,10 +151,12 @@ export async function login({ institution_identifier, password }) {
         throw err;
     }
 
+    // Allow lookup by either institution_identifier OR email —
+    // covers staff logging in with their university email.
     const { data: user, error: lookupError } = await supabaseAdmin
         .from("users")
         .select("id, email, full_name, is_default_password, status")
-        .eq("institution_identifier", identifier)
+        .or(`institution_identifier.eq.${identifier},email.eq.${identifier}`)
         .single();
 
     if (lookupError || !user) {
@@ -183,13 +184,12 @@ export async function login({ institution_identifier, password }) {
         user: {
             id: user.id,
             full_name: user.full_name,
-            institution_identifier: identifier,
+            institution_identifier: user.institution_identifier,
             status: user.status,
         },
         force_password_change: user.is_default_password,
     };
 }
-
 export async function getCurrentUser(authUserId) {
     const { data: profile, error } = await supabaseAdmin
         .from("users")
