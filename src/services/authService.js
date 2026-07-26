@@ -3,6 +3,7 @@ import { generateDefaultPassword } from "../utils/generatePassword.js";
 import { validatePassword } from "../utils/validatePassword.js";
 import { generateOtp, hashOtp, otpExpiry } from "../utils/otp.js";
 import { sendOtpEmail } from "../utils/sendEmail.js";
+import { ROLES } from "../constants/roles.js";
 
 export async function adminCreateUser({
     full_name,
@@ -14,96 +15,116 @@ export async function adminCreateUser({
 }) {
     const name = full_name?.trim();
     const identifier = institution_identifier?.trim();
-
+    const normalizedEmail = email?.trim().toLowerCase();
+ 
     if (!name || !identifier || !role) {
         const err = new Error("full_name, institution_identifier, and role are required");
         err.statusCode = 400;
         throw err;
     }
-
-    if ((role === "Student" || role === "Lecturer") && !department_id) {
+ 
+    if ((role === ROLES.STUDENT || role === ROLES.LECTURER) && !department_id) {
         const err = new Error(`department_id is required for role: ${role}`);
         err.statusCode = 400;
         throw err;
     }
 
+    if (STAFF_ROLES.includes(role)) {
+        if (!normalizedEmail) {
+            const err = new Error("A university email is required for staff accounts.");
+            err.statusCode = 400;
+            throw err;
+        }
+ 
+        if (!normalizedEmail.endsWith(UNIVERSITY_DOMAIN)) {
+            const err = new Error(`Staff email must end with ${UNIVERSITY_DOMAIN}`);
+            err.statusCode = 400;
+            throw err;
+        }
+    }
+ 
     const DEFAULT_PASSWORD = generateDefaultPassword();
-
+ 
+   
+    const authEmail = STAFF_ROLES.includes(role)
+        ? normalizedEmail
+        : normalizedEmail || `${identifier}@pending.local`;
+ 
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
-        email: email || `${identifier}@pending.local`,
+        email: authEmail,
         password: DEFAULT_PASSWORD,
         email_confirm: true,
     });
-
+ 
     if (error) {
         const err = new Error(error.message);
         err.statusCode = 400;
         throw err;
     }
-
+ 
     const { error: insertError } = await supabaseAdmin
         .from("users")
         .insert({
             id: data.user.id,
             institution_identifier: identifier,
             full_name: name,
-            email: email || null,
+            email: normalizedEmail || null,
             is_default_password: true,
             status: "PENDING",
         });
-
+ 
     if (insertError) {
         await supabaseAdmin.auth.admin.deleteUser(data.user.id);
         const err = new Error(insertError.message);
         err.statusCode = 500;
         throw err;
     }
-
+ 
     const { data: roleRow, error: roleError } = await supabaseAdmin
         .from("roles")
         .select("id")
         .eq("name", role)
         .single();
-
+ 
     if (roleError || !roleRow) {
         await supabaseAdmin.auth.admin.deleteUser(data.user.id);
         const err = new Error(`Invalid role: ${role}`);
         err.statusCode = 400;
         throw err;
     }
-
+ 
     const { error: roleAssignError } = await supabaseAdmin
         .from("user_roles")
         .insert({
             user_id: data.user.id,
             role_id: roleRow.id,
-            scope_type: role === "Monitor" ? scope_type : null,
-            scope_id: role === "Monitor" ? department_id : null,
+            scope_type: role === ROLES.MONITOR ? scope_type : null,
+            scope_id: role === ROLES.MONITOR ? department_id : null,
         });
-
+ 
     if (roleAssignError) {
         await supabaseAdmin.auth.admin.deleteUser(data.user.id);
         const err = new Error(roleAssignError.message);
         err.statusCode = 500;
         throw err;
     }
-
-    if (role === "Student") {
+ 
+    if (role === ROLES.STUDENT) {
         const { error: extError } = await supabaseAdmin
             .from("students")
             .insert({ user_id: data.user.id, department_id });
-
+ 
         if (extError) {
             await supabaseAdmin.auth.admin.deleteUser(data.user.id);
             const err = new Error(extError.message);
             err.statusCode = 500;
             throw err;
         }
-    } else if (role === "Lecturer") {
+    } else if (role === ROLES.LECTURER) {
         const { error: extError } = await supabaseAdmin
             .from("staff")
             .insert({ user_id: data.user.id, department_id });
-
+ 
         if (extError) {
             await supabaseAdmin.auth.admin.deleteUser(data.user.id);
             const err = new Error(extError.message);
@@ -111,12 +132,12 @@ export async function adminCreateUser({
             throw err;
         }
     }
-
+ 
     return {
         id: data.user.id,
         institution_identifier: identifier,
         full_name: name,
-        email: email || null,
+        email: normalizedEmail || null,
         role,
         default_password: DEFAULT_PASSWORD,
     };
