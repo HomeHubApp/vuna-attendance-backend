@@ -141,7 +141,16 @@ export async function adminCreateUser({
         default_password: DEFAULT_PASSWORD,
     };
 }
+async function getUserRoleNames(userId) {
+    const { data, error } = await supabaseAdmin
+        .from("user_roles")
+        .select("roles(name)")
+        .eq("user_id", userId);
 
+    if (error || !data) return [];
+
+    return data.map((row) => row.roles.name);
+}
 export async function login({ institution_identifier, password }) {
     const identifier = institution_identifier?.trim();
 
@@ -151,16 +160,36 @@ export async function login({ institution_identifier, password }) {
         throw err;
     }
 
-    // Allow lookup by either institution_identifier OR email —
-    // covers staff logging in with their university email.
-    const { data: user, error: lookupError } = await supabaseAdmin
+    const isEmail = identifier.includes("@");
+
+    let query = supabaseAdmin
         .from("users")
-        .select("id, email, full_name, is_default_password, status")
-        .or(`institution_identifier.eq.${identifier},email.eq.${identifier}`)
-        .single();
+        .select("id, institution_identifier, email, full_name, is_default_password, status");
+
+    query = isEmail
+        ? query.eq("email", identifier.toLowerCase())
+        : query.eq("institution_identifier", identifier);
+
+    const { data: user, error: lookupError } = await query.single();
 
     if (lookupError || !user) {
-        const err = new Error("Invalid institution identifier or password");
+        const err = new Error("Invalid login credentials");
+        err.statusCode = 401;
+        throw err;
+    }
+
+    const roleNames = await getUserRoleNames(user.id);
+    const isStaffAccount = roleNames.some((name) => STAFF_ROLES.includes(name));
+    const isStudentAccount = roleNames.includes(ROLES.STUDENT);
+
+    if (isEmail && !isStaffAccount) {
+        const err = new Error("Students must sign in with their matric number, not email.");
+        err.statusCode = 401;
+        throw err;
+    }
+
+    if (!isEmail && !isStudentAccount) {
+        const err = new Error("Staff must sign in with their Veritas email.");
         err.statusCode = 401;
         throw err;
     }
@@ -173,7 +202,7 @@ export async function login({ institution_identifier, password }) {
     });
 
     if (authError) {
-        const err = new Error("Invalid institution identifier or password");
+        const err = new Error("Invalid login credentials");
         err.statusCode = 401;
         throw err;
     }
