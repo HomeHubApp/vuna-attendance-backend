@@ -215,6 +215,7 @@ export async function login({ institution_identifier, password }) {
             full_name: user.full_name,
             institution_identifier: user.institution_identifier,
             status: user.status,
+            role: roleNames[0],
         },
         force_password_change: user.is_default_password,
     };
