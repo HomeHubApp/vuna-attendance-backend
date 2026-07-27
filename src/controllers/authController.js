@@ -48,11 +48,10 @@ export async function refresh(req, res) {
 }
 
 export async function logout(req, res) {
-    res.clearCookie("access_token", clearCookieOptions());
-    res.clearCookie("refresh_token", clearCookieOptions());
+    res.clearCookie("access_token", clearAccessTokenCookieOptions());
+    res.clearCookie("refresh_token", clearRefreshTokenCookieOptions());
     return res.status(200).json({ message: "Logged out successfully" });
 }
-
 export async function me(req, res) {
     try {
         const profile = await authService.getCurrentUser(req.authUser.id);
