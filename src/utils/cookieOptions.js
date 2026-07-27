@@ -1,25 +1,31 @@
-export function accessTokenCookieOptions() {
+function baseCookieOptions() {
     return {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production", 
-        sameSite: "lax",
-        maxAge: 60 * 60 * 1000, 
+        secure: true,
+        sameSite: "none",
+    };
+}
+
+export function accessTokenCookieOptions() {
+    return {
+        ...baseCookieOptions(),
+        maxAge: 60 * 60 * 1000,
+        path: "/",
     };
 }
 
 export function refreshTokenCookieOptions() {
     return {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        ...baseCookieOptions(),
         maxAge: 30 * 24 * 60 * 60 * 1000,
+        path: "/api/auth",
     };
 }
 
-export function clearCookieOptions() {
-    return {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-    };
+export function clearAccessTokenCookieOptions() {
+    return { ...baseCookieOptions(), path: "/" };
+}
+
+export function clearRefreshTokenCookieOptions() {
+    return { ...baseCookieOptions(), path: "/api/auth" };
 }
