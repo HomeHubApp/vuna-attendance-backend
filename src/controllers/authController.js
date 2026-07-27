@@ -2,7 +2,8 @@ import * as authService from "../services/authService.js";
 import {
     accessTokenCookieOptions,
     refreshTokenCookieOptions,
-    clearCookieOptions,
+    clearAccessTokenCookieOptions,
+    clearRefreshTokenCookieOptions,
 } from "../utils/cookieOptions.js";
 
 export async function adminCreateUser(req, res) {
@@ -36,12 +37,12 @@ export async function refresh(req, res) {
     try {
         const refreshToken = req.cookies?.refresh_token;
         const tokens = await authService.refreshSession(refreshToken);
-
         res.cookie("access_token", tokens.access_token, accessTokenCookieOptions());
         res.cookie("refresh_token", tokens.refresh_token, refreshTokenCookieOptions());
-
         return res.status(200).json({ message: "Session refreshed" });
     } catch (error) {
+        res.clearCookie("access_token", clearAccessTokenCookieOptions());
+        res.clearCookie("refresh_token", clearRefreshTokenCookieOptions());
         const status = error.statusCode || 500;
         return res.status(status).json({ error: error.message });
     }
