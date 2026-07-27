@@ -4,6 +4,29 @@ import { validatePassword } from "../utils/validatePassword.js";
 import { generateOtp, hashOtp, otpExpiry } from "../utils/otp.js";
 import { sendOtpEmail } from "../utils/sendEmail.js";
 import { ROLES, STAFF_ROLES, UNIVERSITY_DOMAIN } from "../constants/roles.js";
+
+// Add this function to authService.js — everything else in that file is unchanged.
+
+export async function refreshSession(refreshToken) {
+    if (!refreshToken) {
+        const err = new Error("No refresh token provided");
+        err.statusCode = 401;
+        throw err;
+    }
+
+    const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
+
+    if (error || !data?.session) {
+        const err = new Error("Invalid or expired refresh token");
+        err.statusCode = 401;
+        throw err;
+    }
+
+    return {
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+    };
+}
 export async function adminCreateUser({
     full_name,
     institution_identifier,
@@ -691,3 +714,4 @@ export async function resetPassword({ institution_identifier, otp, newPassword }
 
     return { message: "Password reset successfully. You can now log in." };
 }
+
