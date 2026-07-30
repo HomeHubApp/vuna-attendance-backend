@@ -201,7 +201,24 @@ export async function login({ institution_identifier, password }) {
         throw err;
     }
 
-    const roleNames = await getUserRoleNames(user.id);
+    const { data: roleRows, error: roleError } = await supabaseAdmin
+        .from("user_roles")
+        .select("scope_type, scope_id, roles(name)")
+        .eq("user_id", user.id);
+
+    if (roleError) {
+        const err = new Error(roleError.message);
+        err.statusCode = 500;
+        throw err;
+    }
+
+    const roles = (roleRows || []).map((row) => ({
+        role: row.roles.name,
+        scope_type: row.scope_type,
+        scope_id: row.scope_id,
+    }));
+
+    const roleNames = roles.map((r) => r.role);
     const isStaffAccount = roleNames.some((name) => STAFF_ROLES.includes(name));
     const isStudentAccount = roleNames.includes(ROLES.STUDENT);
 
@@ -238,7 +255,7 @@ export async function login({ institution_identifier, password }) {
             full_name: user.full_name,
             institution_identifier: user.institution_identifier,
             status: user.status,
-            role: roleNames[0],
+            roles,
         },
         force_password_change: user.is_default_password,
     };
@@ -256,7 +273,24 @@ export async function getCurrentUser(authUserId) {
         throw err;
     }
 
-    return profile;
+    const { data: roleRows, error: roleError } = await supabaseAdmin
+        .from("user_roles")
+        .select("scope_type, scope_id, roles(name)")
+        .eq("user_id", authUserId);
+
+    if (roleError) {
+        const err = new Error(roleError.message);
+        err.statusCode = 500;
+        throw err;
+    }
+
+    const roles = (roleRows || []).map((row) => ({
+        role: row.roles.name,
+        scope_type: row.scope_type,
+        scope_id: row.scope_id,
+    }));
+
+    return { ...profile, roles };
 }
 
 export async function addEmail(authUserId, email) {
