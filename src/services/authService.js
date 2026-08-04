@@ -749,3 +749,66 @@ export async function resetPassword({ institution_identifier, otp, newPassword }
     return { message: "Password reset successfully. You can now log in." };
 }
 
+
+export async function forgotPassword({ institution_identifier }) {
+    const identifier = institution_identifier?.trim();
+
+    const genericResponse = {
+        message: "If this account exists, a reset code has been sent.",
+    };
+
+    if (!identifier) {
+        const err = new Error("institution_identifier is required");
+        err.statusCode = 400;
+        throw err;
+    }
+
+
+    const { data: user, error: lookupError } = await supabaseAdmin
+        .from("users")
+        .select("id, email, email_verified_at")
+        .eq("institution_identifier", identifier)
+        .single();
+
+    if (lookupError || !user || !user.email || !user.email_verified_at) {
+        return genericResponse;
+    }
+
+    await supabaseAdmin
+        .from("otp_codes")
+        .update({ used_at: new Date().toISOString() })
+        .eq("user_id", user.id)
+        .eq("purpose", "PASSWORD_RESET")
+        .is("used_at", null);
+
+    const otp = generateOtp();
+
+    const { data: insertedOtp, error: insertError } = await supabaseAdmin
+        .from("otp_codes")
+        .insert({
+            user_id: user.id,
+            code: hashOtp(otp),
+            purpose: "PASSWORD_RESET",
+            expires_at: otpExpiry(10), // 10-minute expiry
+        })
+        .select()
+        .single();
+
+    if (insertError) {
+        const err = new Error(insertError.message);
+        err.statusCode = 500;
+        throw err;
+    }
+
+
+    try {
+        await sendOtpEmail(user.email, otp, "PASSWORD_RESET");
+    } catch (emailError) {
+        await supabaseAdmin.from("otp_codes").delete().eq("id", insertedOtp.id);
+        const err = new Error("Failed to send reset code. Please try again.");
+        err.statusCode = 500;
+        throw err;
+    }
+
+    return genericResponse;
+}

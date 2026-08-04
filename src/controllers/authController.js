@@ -149,3 +149,13 @@ export async function resetPassword(req, res) {
         return res.status(status).json({ error: error.message });
     }
 }
+
+export async function forgotPassword(req, res) {
+    try {
+        const result = await authService.forgotPassword(req.body || {});
+        return res.status(200).json(result);
+    } catch (error) {
+        const status = error.statusCode || 500;
+        return res.status(status).json({ error: error.message });
+    }
+}

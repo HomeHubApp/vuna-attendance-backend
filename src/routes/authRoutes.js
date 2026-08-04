@@ -17,6 +17,7 @@ const otpRequestLimiter = rateLimit({
     message: { error: "Too many requests. Please try again later." },
 });
 
+
 // Admin
 authRoutes.post("/admin/create-user", authController.adminCreateUser);
 authRoutes.post("/admin/users/:userId/regenerate-password", authController.regenerateDefaultPassword);
