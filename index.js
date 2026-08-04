@@ -3,6 +3,8 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import authRoutes from "./src/routes/authRoutes.js";
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "./src/config/swagger.js";
 
 const PORT = process.env.PORT || 8000;
 const app = express();
@@ -22,5 +24,6 @@ app.use(cookieParser());
 app.use("/api/auth", authRoutes);
 
 app.get("/health", (req, res) => res.json({ status: "ok" }));
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
