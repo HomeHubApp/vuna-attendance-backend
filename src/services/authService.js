@@ -467,7 +467,7 @@ export async function regenerateDefaultPassword(userId) {
         throw err;
     }
 
-    return { user_id: userId, password_generated: true };
+    return { user_id: userId, default_password: newPassword };
 }
 
 export async function verifyEmailOtp(authUserId, submittedOtp) {
