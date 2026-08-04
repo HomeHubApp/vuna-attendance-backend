@@ -84,17 +84,6 @@ export async function sendEmailVerificationOtp(req, res) {
     }
 }
 
-export async function verifyEmailOtp(req, res) {
-    try {
-        const { otp } = req.body || {};
-        const result = await authService.verifyEmailOtp(req.authUser.id, otp);
-        return res.status(200).json(result);
-    } catch (error) {
-        const status = error.statusCode || 500;
-        return res.status(status).json({ error: error.message });
-    }
-}
-
 export async function changePassword(req, res) {
     try {
         const { newPassword } = req.body;
@@ -105,6 +94,28 @@ export async function changePassword(req, res) {
         return res.status(status).json({ error: error.message });
     }
 }
+
+export async function verifyEmailOtp(req, res) {
+    try {
+        const { otp } = req.body || {};
+        const result = await authService.verifyEmailOtp(req.authUser.id, otp);
+        return res.status(200).json(result);
+    } catch (error) {
+        const status = error.statusCode || 500;
+        return res.status(status).json({ error: error.message });
+    }
+}
+export async function verifyResetOtp(req, res) {
+    try {
+        const result = await authService.verifyResetOtp(req.body || {});
+        return res.status(200).json(result);
+    } catch (error) {
+        const status = error.statusCode || 500;
+        return res.status(status).json({ error: error.message });
+    }
+}
+
+
 
 export async function regenerateDefaultPassword(req, res) {
     try {
@@ -120,25 +131,7 @@ export async function regenerateDefaultPassword(req, res) {
     }
 }
 
-export async function forgotPassword(req, res) {
-    try {
-        const result = await authService.forgotPassword(req.body || {});
-        return res.status(200).json(result);
-    } catch (error) {
-        const status = error.statusCode || 500;
-        return res.status(status).json({ error: error.message });
-    }
-}
 
-export async function verifyResetOtp(req, res) {
-    try {
-        const result = await authService.verifyResetOtp(req.body || {});
-        return res.status(200).json(result);
-    } catch (error) {
-        const status = error.statusCode || 500;
-        return res.status(status).json({ error: error.message });
-    }
-}
 
 export async function resetPassword(req, res) {
     try {

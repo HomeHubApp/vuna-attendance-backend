@@ -30,9 +30,10 @@ export async function sendOtpEmail(to, otp, purpose) {
     });
 
     if (!response.ok) {
-        const errorBody = await response.json().catch(() => ({}));
-        throw new Error(
-            `Failed to send email: ${errorBody.message || response.statusText}`
-        );
-    }
+    const errorBody = await response.json().catch(() => ({}));
+    console.log("Brevo error response:", errorBody); // temporary — remove after debugging
+    throw new Error(
+        `Failed to send email: ${errorBody.message || response.statusText}`
+    );
+}
 }
