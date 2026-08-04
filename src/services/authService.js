@@ -500,7 +500,7 @@ export async function verifyEmailOtp(authUserId, submittedOtp) {
 
     const { data: otpRecord, error: lookupError } = await supabaseAdmin
         .from("otp_codes")
-        .select("id, code, expires_at, used_at")
+        .select("id, code, expires_at, used_at", "attempts")
         .eq("user_id", authUserId)
         .eq("purpose", "EMAIL_VERIFICATION")
         .order("created_at", { ascending: false })
@@ -524,6 +524,16 @@ export async function verifyEmailOtp(authUserId, submittedOtp) {
         err.statusCode = 400;
         throw err;
     }
+    if (otpRecord.attempts >= MAX_OTP_ATTEMPTS) {
+        await supabaseAdmin
+            .from("otp_codes")
+            .update({ used_at: new Date().toISOString() })
+            .eq("id", otpRecord.id);
+
+        const err = new Error("Too many incorrect attempts. Please request a new OTP.");
+        err.statusCode = 400;
+        throw err;
+    }
 
     if (otpRecord.code !== hashedSubmitted) {
         const err = new Error("Incorrect OTP.");
@@ -541,9 +551,20 @@ export async function verifyEmailOtp(authUserId, submittedOtp) {
         email_confirm: true,
     });
 
-    const { error: updateError } = await supabaseAdmin
+    const {data: statusCheck} = await supabaseAdmin
         .from("users")
-        .update({ email_verified_at: new Date().toISOString() })
+        .select("is_default_password")
+        .eq("id", authUserId)
+        .single();
+    
+    const onboardingComplete = statusCheck?.is_default_password === false;
+
+    const {error : updateError} = await supabaseAdmin
+        .from("users")
+        .update({ 
+            email_verified_at: new Date().toISOString(),
+            status: onboardingComplete ? "ACTIVE" : "PENDING"
+        })
         .eq("id", authUserId);
 
     if (updateError) {
@@ -626,7 +647,7 @@ async function findValidResetOtp(userId, submittedOtp) {
 
     const { data: otpRecord, error: lookupError } = await supabaseAdmin
         .from("otp_codes")
-        .select("id, code, expires_at, used_at")
+        .select("id, code, expires_at, used_at", "attempts")
         .eq("user_id", userId)
         .eq("purpose", "PASSWORD_RESET")
         .order("created_at", { ascending: false })
@@ -650,8 +671,23 @@ async function findValidResetOtp(userId, submittedOtp) {
         err.statusCode = 400;
         throw err;
     }
+    if(otpRecord.attempts >= process.env.MAX_OTP_ATTEMPTS){
+        await supabaseAdmin
+        .from("otp_codes")
+        .update({ used_at: new Date().toISOString() })
+        .eq("id", otpRecord.id);
+
+        const err = new Error("Maximum OTP attempts exceeded. Please request a new code.");
+        err.statusCode = 400;
+        throw err;
+    }
 
     if (otpRecord.code !== hashedSubmitted) {
+        await supabaseAdmin
+        .from("otp_codes")
+        .update({ attempts: otpRecord.attempts + 1 })
+        .eq("id", otpRecord.id);
+
         const err = new Error("Incorrect reset code.");
         err.statusCode = 400;
         throw err;
