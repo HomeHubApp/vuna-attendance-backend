@@ -1,8 +1,7 @@
-import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function sendOtpEmail(to, otp, purpose) {
+    console.log("sendOtpEmail called with:", to, purpose); // temporary
     const subject = purpose === "EMAIL_VERIFICATION"
         ? "Verify your email — Veritas Attendance"
         : "Password reset code — Veritas Attendance";
