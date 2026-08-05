@@ -6,13 +6,13 @@ import { requireAuth } from "../middleware/authMiddleware.js";
 const authRoutes = Router();
 
 const otpGuessLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
+    windowMs: 1 * 60 * 1000,
     max: 10,
     message: { error: "Too many attempts. Please try again later." },
 });
 
 const otpRequestLimiter = rateLimit({
-    windowMs: 60 * 60 * 1000,
+    windowMs: 1 * 60 * 1000,
     max: 5,
     message: { error: "Too many requests. Please try again later." },
 });

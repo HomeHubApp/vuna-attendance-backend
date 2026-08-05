@@ -195,6 +195,10 @@ export async function login({ institution_identifier, password }) {
 
     const { data: user, error: lookupError } = await query.single();
 
+    console.log("lookup identifier used:", identifier, "isEmail:", isEmail);
+    console.log("lookupError:", lookupError);
+    console.log("user found:", user);
+
     if (lookupError || !user) {
         const err = new Error("Invalid login credentials");
         err.statusCode = 401;
@@ -240,6 +244,7 @@ export async function login({ institution_identifier, password }) {
         email: authEmail,
         password,
     });
+    
 
     if (authError) {
         const err = new Error("Invalid login credentials");
