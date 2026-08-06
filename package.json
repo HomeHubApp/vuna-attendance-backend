@@ -1,0 +1,35 @@
+{
+  "name": "vuna-attendance-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon index.js",
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HomeHubApp/vuna-attendance-backend.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/HomeHubApp/vuna-attendance-backend/issues"
+  },
+  "homepage": "https://github.com/HomeHubApp/vuna-attendance-backend#readme",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.8",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.6.0",
+    "nodemon": "^3.1.14",
+    "resend": "^6.18.0",
+    "supabase": "^2.109.1",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1"
+  }
+}
