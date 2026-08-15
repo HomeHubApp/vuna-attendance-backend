@@ -9,14 +9,14 @@ import { swaggerSpec } from "./src/config/swagger.js";
 const PORT = process.env.PORT || 8000;
 const app = express();
 
-app.set("trust proxy", 1); // Render sits behind one reverse proxy — trust the first hop
+app.set("trust proxy", 1); 
 
 app.use(express.json());
 app.use(cors({
     origin: [
     "http://localhost:3000",
     "http://localhost:5173",
-    /^http:\/\/localhost:\d+$/, // matches any localhost port
+    "https://localhost",
     "capacitor://localhost",
     "https://main.d4h1jxr36mgwz.amplifyapp.com"
 ],
