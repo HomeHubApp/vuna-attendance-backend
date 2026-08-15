@@ -14,10 +14,12 @@ app.set("trust proxy", 1); // Render sits behind one reverse proxy — trust the
 app.use(express.json());
 app.use(cors({
     origin: [
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "https://main.d4h1jxr36mgwz.amplifyapp.com"
-    ],
+    "http://localhost:3000",
+    "http://localhost:5173",
+    /^http:\/\/localhost:\d+$/, // matches any localhost port
+    "capacitor://localhost",
+    "https://main.d4h1jxr36mgwz.amplifyapp.com"
+],
     credentials: true,
 }));
 

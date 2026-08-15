@@ -264,6 +264,7 @@ export async function login({ institution_identifier, password }) {
         },
         force_password_change: user.is_default_password,
     };
+    capacitor://localhost
 }
 export async function getCurrentUser(authUserId) {
     const { data: profile, error } = await supabaseAdmin
@@ -800,9 +801,5 @@ async function findValidResetOtp(userId, submittedOtp) {
         err.statusCode = 400;
         throw err;
     }
-
     return otpRecord;
 }
-
-
-
