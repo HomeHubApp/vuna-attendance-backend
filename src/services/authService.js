@@ -264,7 +264,6 @@ export async function login({ institution_identifier, password }) {
         },
         force_password_change: user.is_default_password,
     };
-    capacitor://localhost
 }
 export async function getCurrentUser(authUserId) {
     const { data: profile, error } = await supabaseAdmin
