@@ -1,5 +1,3 @@
-
-
 export async function sendOtpEmail(to, otp, purpose) {
     console.log("sendOtpEmail called with:", to, purpose); // temporary
     const subject = purpose === "EMAIL_VERIFICATION"
