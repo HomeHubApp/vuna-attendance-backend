@@ -575,7 +575,6 @@ export async function verifyEmailOtp(authUserId, submittedOtp) {
 
     return { message: "Email verified successfully." };
 }
-
 export async function forgotPassword({ institution_identifier }) {
     const identifier = institution_identifier?.trim();
     const genericResponse = { message: "If this account exists, a reset code has been sent." };
@@ -676,7 +675,7 @@ async function findValidResetOtp(userId, submittedOtp) {
         throw err;
     }
 
-    if (otpRecord.attempts >= process.env.MAX_OTP_ATTEMPTS) {
+    if (otpRecord.attempts >= MAX_OTP_ATTEMPTS) {
         await supabaseAdmin
             .from("otp_codes")
             .update({ used_at: new Date().toISOString() })
