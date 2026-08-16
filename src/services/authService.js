@@ -5,7 +5,6 @@ import { generateOtp, hashOtp, otpExpiry } from "../utils/otp.js";
 import { sendOtpEmail } from "../utils/sendEmail.js";
 import { ROLES, STAFF_ROLES, UNIVERSITY_DOMAIN } from "../constants/roles.js";
 
-// Add this function to authService.js — everything else in that file is unchanged.
 
 export async function refreshSession(refreshToken) {
     if (!refreshToken) {
@@ -675,7 +674,7 @@ async function findValidResetOtp(userId, submittedOtp) {
         throw err;
     }
 
-    if (otpRecord.attempts >= MAX_OTP_ATTEMPTS) {
+    if (otpRecord.attempts >= process.env.MAX_OTP_ATTEMPTS) {
         await supabaseAdmin
             .from("otp_codes")
             .update({ used_at: new Date().toISOString() })
