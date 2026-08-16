@@ -195,10 +195,6 @@ export async function login({ institution_identifier, password }) {
 
     const { data: user, error: lookupError } = await query.single();
 
-    console.log("lookup identifier used:", identifier, "isEmail:", isEmail);
-    console.log("lookupError:", lookupError);
-    console.log("user found:", user);
-
     if (lookupError || !user) {
         const err = new Error("Invalid login credentials");
         err.statusCode = 401;
@@ -244,7 +240,6 @@ export async function login({ institution_identifier, password }) {
         email: authEmail,
         password,
     });
-    
 
     if (authError) {
         const err = new Error("Invalid login credentials");
@@ -472,7 +467,7 @@ export async function regenerateDefaultPassword(userId) {
         throw err;
     }
 
-    return { user_id: userId, default_password: newPassword };
+    return { user_id: userId, password_generated: true };
 }
 
 export async function verifyEmailOtp(authUserId, submittedOtp) {
@@ -581,43 +576,36 @@ export async function verifyEmailOtp(authUserId, submittedOtp) {
 }
 
 
- 
 export async function forgotPassword({ institution_identifier }) {
     const identifier = institution_identifier?.trim();
     const genericResponse = { message: "If this account exists, a reset code has been sent." };
- 
+
     if (!identifier) {
         const err = new Error("institution_identifier is required");
         err.statusCode = 400;
         throw err;
     }
- 
-    const isEmail = identifier.includes("@");
- 
-    let query = supabaseAdmin
-        .from("users")
-        .select("id, email, email_verified_at");
- 
-    query = isEmail
-        ? query.eq("email", identifier.toLowerCase())
-        : query.eq("institution_identifier", identifier);
- 
-    const { data: user, error: lookupError } = await query.single();
- 
-    if (lookupError || !user || !user.email || !user.email_verified_at) {
 
+    const { data: user, error: lookupError } = await supabaseAdmin
+        .from("users")
+        .select("id, email, email_verified_at")
+        .eq("institution_identifier", identifier)
+        .single();
+
+    if (lookupError || !user || !user.email || !user.email_verified_at) {
+       
         return genericResponse;
     }
- 
+
     await supabaseAdmin
         .from("otp_codes")
         .update({ used_at: new Date().toISOString() })
         .eq("user_id", user.id)
         .eq("purpose", "PASSWORD_RESET")
         .is("used_at", null);
- 
+
     const otp = generateOtp();
- 
+
     const { data: insertedOtp, error: insertError } = await supabaseAdmin
         .from("otp_codes")
         .insert({
@@ -628,13 +616,13 @@ export async function forgotPassword({ institution_identifier }) {
         })
         .select()
         .single();
- 
+
     if (insertError) {
         const err = new Error(insertError.message);
         err.statusCode = 500;
         throw err;
     }
- 
+
     try {
         await sendOtpEmail(user.email, otp, "PASSWORD_RESET");
     } catch (emailError) {
@@ -643,111 +631,14 @@ export async function forgotPassword({ institution_identifier }) {
         err.statusCode = 500;
         throw err;
     }
- 
+
     const response = { ...genericResponse };
- 
+
     if (process.env.NODE_ENV === "development") {
         response.otp = otp;
     }
- 
+
     return response;
-}
- 
-export async function verifyResetOtp({ institution_identifier, otp }) {
-    const identifier = institution_identifier?.trim();
- 
-    if (!identifier || !otp) {
-        const err = new Error("institution_identifier and otp are required");
-        err.statusCode = 400;
-        throw err;
-    }
- 
-    const isEmail = identifier.includes("@");
- 
-    let query = supabaseAdmin.from("users").select("id");
- 
-    query = isEmail
-        ? query.eq("email", identifier.toLowerCase())
-        : query.eq("institution_identifier", identifier);
- 
-    const { data: user, error: lookupError } = await query.single();
- 
-    if (lookupError || !user) {
-        const err = new Error("Incorrect reset code.");
-        err.statusCode = 400;
-        throw err;
-    }
- 
-    await findValidResetOtp(user.id, otp);
- 
-    return { message: "Code verified. You may now reset your password." };
-}
- 
-export async function resetPassword({ institution_identifier, otp, newPassword }) {
-    const identifier = institution_identifier?.trim();
- 
-    if (!identifier || !otp) {
-        const err = new Error("institution_identifier and otp are required");
-        err.statusCode = 400;
-        throw err;
-    }
- 
-    const validationError = validatePassword(newPassword);
-    if (validationError) {
-        const err = new Error(validationError);
-        err.statusCode = 400;
-        throw err;
-    }
- 
-    const isEmail = identifier.includes("@");
- 
-    let query = supabaseAdmin.from("users").select("id");
- 
-    query = isEmail
-        ? query.eq("email", identifier.toLowerCase())
-        : query.eq("institution_identifier", identifier);
- 
-    const { data: user, error: lookupError } = await query.single();
- 
-    if (lookupError || !user) {
-        const err = new Error("Incorrect reset code.");
-        err.statusCode = 400;
-        throw err;
-    }
- 
-    const otpRecord = await findValidResetOtp(user.id, otp);
- 
-    const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
-        user.id,
-        { password: newPassword }
-    );
- 
-    if (authError) {
-        const err = new Error(authError.message);
-        err.statusCode = 500;
-        throw err;
-    }
- 
-    await supabaseAdmin
-        .from("otp_codes")
-        .update({ used_at: new Date().toISOString() })
-        .eq("id", otpRecord.id);
- 
-    const { error: updateError } = await supabaseAdmin
-        .from("users")
-        .update({
-            is_default_password: false,
-            last_login_at: new Date().toISOString(),
-        })
-        .eq("id", user.id);
- 
-    if (updateError) {
-        const err = new Error(updateError.message);
-        err.statusCode = 500;
-        throw err;
-    }
- 
-    return { message: "Password reset successfully. You can now log in." };
 }
 
 async function findValidResetOtp(userId, submittedOtp) {
@@ -800,5 +691,95 @@ async function findValidResetOtp(userId, submittedOtp) {
         err.statusCode = 400;
         throw err;
     }
+
     return otpRecord;
+}
+
+export async function verifyResetOtp({ institution_identifier, otp }) {
+    const identifier = institution_identifier?.trim();
+
+    if (!identifier || !otp) {
+        const err = new Error("institution_identifier and otp are required");
+        err.statusCode = 400;
+        throw err;
+    }
+
+    const { data: user, error: lookupError } = await supabaseAdmin
+        .from("users")
+        .select("id")
+        .eq("institution_identifier", identifier)
+        .single();
+
+    if (lookupError || !user) {
+        const err = new Error("Incorrect reset code.");
+        err.statusCode = 400;
+        throw err;
+    }
+
+    await findValidResetOtp(user.id, otp);
+
+    return { message: "Code verified. You may now reset your password." };
+}
+
+export async function resetPassword({ institution_identifier, otp, newPassword }) {
+    const identifier = institution_identifier?.trim();
+
+    if (!identifier || !otp) {
+        const err = new Error("institution_identifier and otp are required");
+        err.statusCode = 400;
+        throw err;
+    }
+
+    const validationError = validatePassword(newPassword);
+    if (validationError) {
+        const err = new Error(validationError);
+        err.statusCode = 400;
+        throw err;
+    }
+
+    const { data: user, error: lookupError } = await supabaseAdmin
+        .from("users")
+        .select("id")
+        .eq("institution_identifier", identifier)
+        .single();
+
+    if (lookupError || !user) {
+        const err = new Error("Incorrect reset code.");
+        err.statusCode = 400;
+        throw err;
+    }
+
+    const otpRecord = await findValidResetOtp(user.id, otp);
+
+    const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+        user.id,
+        { password: newPassword }
+    );
+
+    if (authError) {
+        const err = new Error(authError.message);
+        err.statusCode = 500;
+        throw err;
+    }
+
+    await supabaseAdmin
+        .from("otp_codes")
+        .update({ used_at: new Date().toISOString() })
+        .eq("id", otpRecord.id);
+
+    const { error: updateError } = await supabaseAdmin
+        .from("users")
+        .update({
+            is_default_password: false,
+            last_login_at: new Date().toISOString(),
+        })
+        .eq("id", user.id);
+
+    if (updateError) {
+        const err = new Error(updateError.message);
+        err.statusCode = 500;
+        throw err;
+    }
+
+    return { message: "Password reset successfully. You can now log in." };
 }
