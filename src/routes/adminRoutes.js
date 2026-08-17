@@ -118,6 +118,6 @@ const adminRouter = Router();
  *       500:
  *         description: Database error
  */
-adminRoutes.get("/users", adminController.getAllUsers);
+adminRouter.get("/users", adminController.getAllUsers);
 
 export default adminRouter;
