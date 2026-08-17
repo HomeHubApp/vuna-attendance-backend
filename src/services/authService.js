@@ -33,6 +33,7 @@ export async function adminCreateUser({
     role,
     department_id,
     scope_type,
+    current_level
 }) {
     const name = full_name?.trim();
     const identifier = institution_identifier?.trim();
@@ -133,7 +134,7 @@ export async function adminCreateUser({
     if (role === ROLES.STUDENT) {
         const { error: extError } = await supabaseAdmin
             .from("students")
-            .insert({ user_id: data.user.id, department_id });
+            .insert({ user_id: data.user.id, department_id, current_level: current_level || null, });
  
         if (extError) {
             await supabaseAdmin.auth.admin.deleteUser(data.user.id);
