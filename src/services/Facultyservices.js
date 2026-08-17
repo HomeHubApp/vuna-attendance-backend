@@ -1,24 +1,24 @@
 import { supabaseAdmin } from "../config/supabase.js";
 
-class Department {
+class Faculty {
   // CREATE
-  static async createDepartment({ name, faculty_id, abbreviation }) {
+  static async createFaculty({ name }) {
     const cleanName = name?.trim();
-    const cleanCode = abbreviation?.trim().toUpperCase();
 
-    if (!cleanName || !cleanCode) {
-      const err = new Error("Department name and code are required");
+
+    if (!cleanName) {
+      const err = new Error("Faculty name is required");
       err.statusCode = 400;
       throw err;
     }
 
     const { data, error } = await supabaseAdmin
-      .from("departments")
-      .insert({ name: cleanName, faculty_id: faculty_id, abbreviation: cleanCode })
+      .from("faculties")
+      .insert({ name: cleanName })
       .select();
 
     if (error) {
-      const err = new Error(error.message || "Failed to create department");
+      const err = new Error(error.message || "Failed to create faculty");
       err.statusCode = 400;
       throw err;
     }
@@ -27,13 +27,13 @@ class Department {
   }
 
   // READ (All)
-  static async getAllDepartments() {
+  static async getFaculty() {
     const { data, error } = await supabaseAdmin
-      .from("departments")
+      .from("faculties")
       .select("*");
 
     if (error) {
-      const err = new Error(error.message || "Failed to fetch departments");
+      const err = new Error(error.message || "Failed to fetch faculties");
       err.statusCode = 400;
       throw err;
     }
@@ -42,15 +42,15 @@ class Department {
   }
 
   // READ (Single by ID)
-  static async getDepartmentById(id) {
+  static async getFacultyById(id) {
     const { data, error } = await supabaseAdmin
-      .from("departments")
+      .from("faculties")
       .select("*")
       .eq("id", id)
       .single(); // Tells Supabase to expect exactly one row
 
     if (error) {
-      const err = new Error(error.message || "Department not found");
+      const err = new Error(error.message || "Faculty not found");
       err.statusCode = 404;
       throw err;
     }
@@ -59,27 +59,27 @@ class Department {
   }
 
   // UPDATE
-  static async updateDepartment(id, updates) {
+  static async updateFaculty(id, updates) {
     if (!id) {
-      const err = new Error("Department ID is required");
+      const err = new Error("Faculty ID is required");
       err.statusCode = 400;
       throw err;
     }
 
     const { data, error } = await supabaseAdmin
-      .from("departments")
+      .from("faculties")
       .update(updates)
       .eq("id", id)
       .select();
 
     if (error) {
-      const err = new Error(error.message || "Failed to update department");
+      const err = new Error(error.message || "Failed to update faculty");
       err.statusCode = 400;
       throw err;
     }
 
     if (!data || data.length === 0) {
-      const err = new Error("Department not found");
+      const err = new Error("Faculty not found");
       err.statusCode = 404;
       throw err;
     }
@@ -88,33 +88,33 @@ class Department {
   }
 
   // DELETE
-  static async deleteDepartment(id) {
+  static async deleteFaculty(id) {
     if (!id) {
-      const err = new Error("Department ID is required");
+      const err = new Error("Faculty ID is required");
       err.statusCode = 400;
       throw err;
     }
 
     const { data, error } = await supabaseAdmin
-      .from("departments")
+      .from("faculties")
       .delete()
       .eq("id", id)
       .select();
 
     if (error) {
-      const err = new Error(error.message || "Failed to delete department");
+      const err = new Error(error.message || "Failed to delete faculty");
       err.statusCode = 400;
       throw err;
     }
 
     if (!data || data.length === 0) {
-      const err = new Error("Department not found");
+      const err = new Error("Faculty not found");
       err.statusCode = 404;
       throw err;
     }
 
-    return { message: "Department successfully deleted", deletedDepartment: data[0] };
+    return { message: "Faculty successfully deleted", deletedFaculty: data[0] };
   }
 }
 
-export default Department;
+export default Faculty;
