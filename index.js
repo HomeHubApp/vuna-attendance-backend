@@ -5,9 +5,13 @@ import cors from "cors";
 import authRoutes from "./src/routes/authRoutes.js";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./src/config/swagger.js";
+
 import courseroutes from "./src/routes/coursesroutes.js";
 import { requireAuth } from "./src/middleware/authMiddleware.js";
-import departmentroutes from "./src/routes/departmentRoutes.js";
+import departmentroutes from "./src/routes/departmentRoutes.js"
+import Facultyroutes from "./src/routes/facultyroutes.js"
+
+import adminRoutes from "./src/routes/adminRoutes.js";
 
 const PORT = process.env.PORT || 8000;
 const app = express();
@@ -29,8 +33,10 @@ app.use(cors({
 app.use(cookieParser());
 
 app.use("/api/auth", authRoutes);
-app.use("/api/courses", courseroutes);
-app.use("/api/department", departmentroutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/courses",requireAuth, courseroutes)
+app.use("/api/department",requireAuth, departmentroutes)
+app.use("/api/faculty", requireAuth, Facultyroutes)
 
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));

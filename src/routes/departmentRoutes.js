@@ -18,6 +18,7 @@ const router = express.Router();
  *       required:
  *         - name
  *         - abbreviation
+ *         - faculty_id
  *       properties:
  *         id:
  *           type: string
@@ -31,12 +32,17 @@ const router = express.Router();
  *           type: string
  *           description: The unique abbreviation/code for the department
  *           example: "CSC"
+ *         faculty_id:
+ *           type: string
+ *           description: The ID of the faculty this department belongs to (UUID)
+ *           example: "f47ac10b-58cc-4372-a567-0e02b2c3d4e5"
  * 
  *     DepartmentInput:
  *       type: object
  *       required:
  *         - name
  *         - abbreviation
+ *         - faculty_id
  *       properties:
  *         name:
  *           type: string
@@ -44,6 +50,10 @@ const router = express.Router();
  *         abbreviation:
  *           type: string
  *           example: "CSC"
+ *         faculty_id:
+ *           type: string
+ *           description: The ID of the faculty this department belongs to (UUID)
+ *           example: "f47ac10b-58cc-4372-a567-0e02b2c3d4e5"
  * 
  *     DepartmentUpdateInput:
  *       type: object
@@ -54,6 +64,10 @@ const router = express.Router();
  *         abbreviation:
  *           type: string
  *           example: "IT"
+ *         faculty_id:
+ *           type: string
+ *           description: The ID of the faculty this department belongs to (UUID)
+ *           example: "f47ac10b-58cc-4372-a567-0e02b2c3d4e5"
  */
 
 /**
@@ -112,7 +126,7 @@ router.get("/departments", getAllDepartmentsController);
  *         required: true
  *         schema:
  *           type: string
- *         description: Unique department ID
+ *         description: Unique department ID (UUID)
  *     responses:
  *       200:
  *         description: Department details retrieved successfully
@@ -139,7 +153,7 @@ router.get("/departments/:id", getDepartmentByIdController);
  *         required: true
  *         schema:
  *           type: string
- *         description: Unique department ID
+ *         description: Unique department ID (UUID)
  *     requestBody:
  *       required: true
  *       content:
@@ -172,7 +186,7 @@ router.patch("/departments/:id", updateDepartmentController);
  *         required: true
  *         schema:
  *           type: string
- *         description: Unique department ID
+ *         description: Unique department ID (UUID)
  *     responses:
  *       200:
  *         description: Department successfully deleted
