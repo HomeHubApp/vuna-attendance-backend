@@ -11,6 +11,35 @@ const options = {
         servers: [
             { url: "http://localhost:8000/api", description: "Local dev" },
         ],
+        paths: {
+            "/health": {
+                get: {
+                    summary: "Check API health",
+                    tags: ["System"],
+                    servers: [
+                        { url: "http://localhost:8000", description: "Local dev" },
+                    ],
+                    responses: {
+                        200: {
+                            description: "API is healthy",
+                            content: {
+                                "application/json": {
+                                    schema: {
+                                        type: "object",
+                                        properties: {
+                                            status: {
+                                                type: "string",
+                                                example: "ok",
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
         components: {
             securitySchemes: {
                 cookieAuth: {

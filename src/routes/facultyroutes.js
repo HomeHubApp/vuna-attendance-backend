@@ -52,7 +52,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /createfaculty:
+ * /faculty/createfaculty:
  *   post:
  *     summary: Create a new faculty
  *     tags: [Faculties]
@@ -76,7 +76,7 @@ router.post("/createfaculty", createFacultyController);
 
 /**
  * @swagger
- * /faculties:
+ * /faculty/faculties:
  *   get:
  *     summary: Get all faculties
  *     tags: [Faculties]
@@ -96,7 +96,7 @@ router.get("/faculties", getAllFacultiesController);
 
 /**
  * @swagger
- * /faculties/{id}:
+ * /faculty/faculties/{id}:
  *   get:
  *     summary: Get a faculty by ID
  *     tags: [Faculties]
@@ -123,7 +123,7 @@ router.get("/faculties/:id", getFacultyByIdController);
 
 /**
  * @swagger
- * /faculties/{id}:
+ * /faculty/faculties/{id}:
  *   patch:
  *     summary: Update an existing faculty
  *     tags: [Faculties]
@@ -156,7 +156,7 @@ router.patch("/faculties/:id", updateFacultyController);
 
 /**
  * @swagger
- * /faculties/{id}:
+ * /faculty/faculties/{id}:
  *   delete:
  *     summary: Delete a faculty by ID
  *     tags: [Faculties]

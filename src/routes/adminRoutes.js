@@ -120,4 +120,179 @@ const adminRouter = Router();
  */
 adminRouter.get("/users", adminController.getAllUsers);
 
+/**
+ * @swagger
+ * /admin/users/{id}:
+ *   patch:
+ *     summary: Update an existing user (partial update)
+ *     tags: [Admin]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: The ID of the user to update
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               full_name:
+ *                 type: string
+ *                 description: User's full name
+ *               institution_identifier:
+ *                 type: string
+ *                 description: Institution identifier (e.g. student/staff ID)
+ *               email:
+ *                 type: string
+ *                 description: User's email address
+ *               department_id:
+ *                 type: string
+ *                 format: uuid
+ *                 description: ID of the department to assign to the user
+ *               status:
+ *                 type: string
+ *                 enum: [PENDING, ACTIVE, INACTIVE, SUSPENDED]
+ *                 description: User's account status
+ *             description: All fields are optional (partial update). Only provided fields will be updated.
+ *     responses:
+ *       200:
+ *         description: Updated user with resolved department and role information
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                   format: uuid
+ *                 name:
+ *                   type: string
+ *                 institution_identifier:
+ *                   type: string
+ *                 email:
+ *                   type: string
+ *                   nullable: true
+ *                 department:
+ *                   type: string
+ *                   nullable: true
+ *                 detail:
+ *                   type: string
+ *                   nullable: true
+ *                 status:
+ *                   type: string
+ *                   enum: [PENDING, ACTIVE, INACTIVE, SUSPENDED]
+ *                 roles:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       role:
+ *                         type: string
+ *                       scope_type:
+ *                         type: string
+ *                         nullable: true
+ *                       scope_id:
+ *                         type: string
+ *                         nullable: true
+ *                 email_verified:
+ *                   type: boolean
+ *                 is_default_password:
+ *                   type: boolean
+ *                 last_login_at:
+ *                   type: string
+ *                   nullable: true
+ *                 created_at:
+ *                   type: string
+ *       400:
+ *         description: Bad request (missing ID or no valid fields provided)
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Database error
+ */
+adminRouter.patch("/users/:id", adminController.updateUser);
+
+/**
+ * @swagger
+ * /admin/users/{id}:
+ *   delete:
+ *     summary: Delete a user permanently
+ *     tags: [Admin]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: The ID of the user to delete
+ *     responses:
+ *       200:
+ *         description: User successfully deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: User successfully deleted
+ *                 deletedUser:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       format: uuid
+ *                     name:
+ *                       type: string
+ *                     institution_identifier:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                       nullable: true
+ *                     department:
+ *                       type: string
+ *                       nullable: true
+ *                     detail:
+ *                       type: string
+ *                       nullable: true
+ *                     status:
+ *                       type: string
+ *                       enum: [PENDING, ACTIVE, INACTIVE, SUSPENDED]
+ *                     roles:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           role:
+ *                             type: string
+ *                           scope_type:
+ *                             type: string
+ *                             nullable: true
+ *                           scope_id:
+ *                             type: string
+ *                             nullable: true
+ *                     email_verified:
+ *                       type: boolean
+ *                     is_default_password:
+ *                       type: boolean
+ *                     last_login_at:
+ *                       type: string
+ *                       nullable: true
+ *                     created_at:
+ *                       type: string
+ *       400:
+ *         description: Bad request (missing ID, or deletion failed due to foreign key constraints)
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Database error
+ */
+adminRouter.delete("/users/:id", adminController.deleteUser);
+
 export default adminRouter;
