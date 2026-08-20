@@ -72,7 +72,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /createdepartment:
+ * /department/createdepartment:
  *   post:
  *     summary: Create a new department
  *     tags: [Departments]
@@ -96,7 +96,7 @@ router.post("/createdepartment", createDepartmentController);
 
 /**
  * @swagger
- * /departments:
+ * /department/departments:
  *   get:
  *     summary: Get all departments
  *     tags: [Departments]
@@ -116,7 +116,7 @@ router.get("/departments", getAllDepartmentsController);
 
 /**
  * @swagger
- * /departments/{id}:
+ * /department/departments/{id}:
  *   get:
  *     summary: Get a department by ID
  *     tags: [Departments]
@@ -143,7 +143,7 @@ router.get("/departments/:id", getDepartmentByIdController);
 
 /**
  * @swagger
- * /departments/{id}:
+ * /department/departments/{id}:
  *   patch:
  *     summary: Update an existing department
  *     tags: [Departments]
@@ -176,7 +176,7 @@ router.patch("/departments/:id", updateDepartmentController);
 
 /**
  * @swagger
- * /departments/{id}:
+ * /department/departments/{id}:
  *   delete:
  *     summary: Delete a department by ID
  *     tags: [Departments]

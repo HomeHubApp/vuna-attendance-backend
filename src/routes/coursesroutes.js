@@ -115,7 +115,7 @@ const courseCreationLimiter = rateLimit({
 
 /**
  * @swagger
- * /createcourses:
+ * /courses/createcourses:
  *   post:
  *     summary: Create a new course
  *     tags: [Courses]
@@ -141,7 +141,7 @@ router.post("/createcourses", courseCreationLimiter, createcourses);
 
 /**
  * @swagger
- * /courses:
+ * /courses/courses:
  *   get:
  *     summary: Get all courses
  *     tags: [Courses]
@@ -161,7 +161,7 @@ router.get("/courses", getcourses);
 
 /**
  * @swagger
- * /courses/{id}:
+ * /courses/courses/{id}:
  *   get:
  *     summary: Get a course by ID
  *     tags: [Courses]
@@ -188,7 +188,7 @@ router.get("/courses/:id", getCourseById);
 
 /**
  * @swagger
- * /courses/{id}:
+ * /courses/courses/{id}:
  *   patch:
  *     summary: Update an existing course
  *     tags: [Courses]
@@ -221,7 +221,7 @@ router.patch("/courses/:id", updateCourse);
 
 /**
  * @swagger
- * /courses/{id}:
+ * /courses/courses/{id}:
  *   delete:
  *     summary: Delete a course by ID
  *     tags: [Courses]
