@@ -1,7 +1,7 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import * as authController from "../controllers/authController.js";
-import { requireAuth } from "../middleware/authMiddleware.js";
+import { requireAuth, requireRole } from "../middleware/authMiddleware.js";
 
 const authRoutes = Router();
 
@@ -59,7 +59,7 @@ const otpRequestLimiter = rateLimit({
  *       400:
  *         description: Missing/invalid fields
  */
-authRoutes.post("/admin/create-user", authController.adminCreateUser);
+authRoutes.post("/admin/create-user",requireAuth, requireRole("Admin"), authController.adminCreateUser);
 /**
  * @swagger
  * /auth/admin/users/{userId}/regenerate-password:
@@ -79,7 +79,7 @@ authRoutes.post("/admin/create-user", authController.adminCreateUser);
  *       404:
  *         description: User not found
  */
-authRoutes.post("/admin/users/:userId/regenerate-password", authController.regenerateDefaultPassword);
+authRoutes.post("/admin/users/:userId/regenerate-password",requireAuth, requireRole("Admin"), authController.regenerateDefaultPassword);
 
 // Public
 /**

@@ -1,5 +1,6 @@
 import * as adminController from "../controllers/adminController.js";
 import { Router } from "express";
+import { requireAuth, requireRole } from "../middleware/authMiddleware.js";
 
 const adminRouter = Router();
 
@@ -118,7 +119,7 @@ const adminRouter = Router();
  *       500:
  *         description: Database error
  */
-adminRouter.get("/users", adminController.getAllUsers);
+adminRouter.get("/users", requireAuth, requireRole("Admin"), adminController.getAllUsers);
 
 /**
  * @swagger
@@ -215,7 +216,7 @@ adminRouter.get("/users", adminController.getAllUsers);
  *       500:
  *         description: Database error
  */
-adminRouter.patch("/users/:id", adminController.updateUser);
+adminRouter.patch("/users/:id",requireAuth, requireRole("Admin"), adminController.updateUser);
 
 /**
  * @swagger
@@ -293,6 +294,6 @@ adminRouter.patch("/users/:id", adminController.updateUser);
  *       500:
  *         description: Database error
  */
-adminRouter.delete("/users/:id", adminController.deleteUser);
+adminRouter.delete("/users/:id",requireAuth, requireRole("Admin"), adminController.deleteUser);
 
 export default adminRouter;
