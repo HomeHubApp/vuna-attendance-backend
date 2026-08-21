@@ -5,7 +5,10 @@ import {
   getcourses,
   updateCourse,
   getCourseById,
+  getMyCourses,
 } from "../controllers/coursescontroller.js";
+import { requireAuth } from "../middleware/authMiddleware.js";
+
 import express from "express";
 
 const router = express.Router();
@@ -158,6 +161,22 @@ router.post("/createcourses", courseCreationLimiter, createcourses);
  *         description: Failed to fetch courses from Supabase
  */
 router.get("/courses", getcourses);
+
+/**
+ * @swagger
+ * /courses/mine:
+ *   get:
+ *     summary: Get courses assigned to the logged-in lecturer
+ *     tags: [Courses]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: List of courses assigned to the authenticated lecturer
+ *       401:
+ *         description: Not authenticated
+ */
+router.get("/mine", requireAuth, getMyCourses);
 
 /**
  * @swagger

@@ -36,6 +36,19 @@ class Courses {
   }
 
 
+  static async getMyCourses(lecturer_id) {
+    const { data, error } = await supabaseAdmin
+    .from("courses")
+    .select("id, course_code, course_name")
+    .eq("lecturer_id", lecturer_id);
+
+    if (error) {
+      const err = new Error(error.message || "Failed to fetch courses");
+      err.statusCode = 400;
+      throw err;
+    }
+  return data;
+}
 static async getAllCourses() {
  
   const { data, error } = await supabaseAdmin
@@ -132,36 +145,5 @@ static async getAllCourses() {
 
     return data[0];
   }
-
-  static async deleteCourse(course_id) {
-    if (!course_id) {
-      const err = new Error("Course ID is required");
-      err.statusCode = 400;
-      throw err;
-    }
-
-    const { data, error } = await supabaseAdmin
-      .from("courses")
-      .delete()
-      .eq("id", course_id)
-      .select();
-
-    if (error) {
-      const err = new Error(error.message || "Failed to delete course");
-      err.statusCode = 400;
-      throw err;
-    }
-
-   
-    if (!data || data.length === 0) {
-      const err = new Error("Course not found");
-      err.statusCode = 404;
-      throw err;
-    }
-
-    return { message: "Course successfully deleted", deletedCourse: data[0] };
-  }
-
 }
-
 export default Courses;
