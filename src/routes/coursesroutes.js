@@ -10,7 +10,6 @@ import {
 import { requireAuth, requireRole } from "../middleware/authMiddleware.js";
 
 import express from "express";
-import { rescheduleSchedule } from "../controllers/classScheduleController.js";
 
 const router = express.Router();
 

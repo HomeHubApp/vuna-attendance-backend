@@ -1,5 +1,5 @@
 import { requireAuth, requireRole } from "../middleware/authMiddleware.js";
-import { cancelSchedule, createSchedule, getMySchedule, rescheduleSchedule } from "../controllers/classScheduleController.js";
+import { createSchedule, deleteSchedule, getMySchedule, updateSchedule } from "../controllers/classScheduleController.js";
 import { Router } from "express";
 
 const classScheduleRoutes = Router();
@@ -163,9 +163,9 @@ classScheduleRoutes.post("/", requireAuth, requireRole("Lecturer"), createSchedu
 classScheduleRoutes.get("/mine", requireAuth, requireRole("Lecturer"), getMySchedule);
 /**
  * @swagger
- * /class-schedule/{id}/reschedule:
- *   post:
- *     summary: Reschedule a single occurrence of a recurring class (does not affect future weeks)
+ * /class-schedule/{id}:
+ *   patch:
+ *     summary: Edit a class schedule (applies to all future occurrences — course_id cannot be changed)
  *     tags: [Class Schedule]
  *     security:
  *       - cookieAuth: []
@@ -176,51 +176,30 @@ classScheduleRoutes.get("/mine", requireAuth, requireRole("Lecturer"), getMySche
  *         schema:
  *           type: string
  *           format: uuid
- *         description: The class_schedule row this occurrence belongs to
  *     requestBody:
- *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required: [original_date, new_date]
  *             properties:
- *               original_date:
- *                 type: string
- *                 example: "2026-09-04"
- *                 description: The specific date being overridden
- *               new_date:
- *                 type: string
- *                 example: "2026-09-05"
- *               new_start_hour:
- *                 type: string
- *                 example: "10:00"
- *                 description: Optional — only if the time is also changing
- *               new_location:
- *                 type: string
- *                 example: LT2
- *                 description: Optional — only if the venue is also changing
+ *               schedule_type: { type: string }
+ *               location: { type: string }
+ *               start_hour: { type: string }
+ *               duration: { type: string }
+ *               day_index: { type: string, enum: [SUN, MON, TUE, WED, THU, FRI, SAT] }
+ *               effective_start_date: { type: string }
+ *               effective_end_date: { type: string }
  *     responses:
  *       200:
- *         description: Exception recorded — the base recurring schedule is untouched
+ *         description: Schedule updated
  *       400:
- *         description: Missing required fields
- *       401:
- *         description: Not authenticated
+ *         description: No valid fields provided
  *       403:
  *         description: Not assigned to this course
  *       404:
  *         description: Schedule not found
- *       409:
- *         description: An exception already exists for this occurrence
- */
-classScheduleRoutes.post("/:id/reschedule", requireAuth, requireRole("Lecturer"), rescheduleSchedule);
-
-/**
- * @swagger
- * /class-schedule/{id}/cancel:
- *   post:
- *     summary: Cancel a single occurrence of a recurring class (does not affect future weeks)
+ *   delete:
+ *     summary: Delete a class schedule (soft delete — marks inactive, preserves history)
  *     tags: [Class Schedule]
  *     security:
  *       - cookieAuth: []
@@ -231,31 +210,15 @@ classScheduleRoutes.post("/:id/reschedule", requireAuth, requireRole("Lecturer")
  *         schema:
  *           type: string
  *           format: uuid
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [original_date]
- *             properties:
- *               original_date:
- *                 type: string
- *                 example: "2026-09-11"
  *     responses:
- *       201:
- *         description: Occurrence marked as cancelled — recorded, not deleted; still visible in getMySchedules
- *       400:
- *         description: Missing required fields
- *       401:
- *         description: Not authenticated
+ *       200:
+ *         description: Schedule deleted (marked inactive)
  *       403:
  *         description: Not assigned to this course
  *       404:
  *         description: Schedule not found
- *       409:
- *         description: An exception already exists for this occurrence
  */
-classScheduleRoutes.post("/:id/cancel", requireAuth, requireRole("Lecturer"), cancelSchedule);
+classScheduleRoutes.patch("/:id", requireAuth, requireRole("Lecturer"), updateSchedule);
+classScheduleRoutes.delete("/:id", requireAuth, requireRole("Lecturer"), deleteSchedule);
 
 export default classScheduleRoutes;

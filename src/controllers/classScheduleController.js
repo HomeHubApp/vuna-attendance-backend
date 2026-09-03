@@ -40,47 +40,24 @@ export const getMySchedule = async (req, res) => {
   }
 };
 
-export const rescheduleSchedule = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await ClassSchedule.rescheduleSchedule(
-      {
-        class_schedule_id: id,
-        ...req.body,
-      },
-      req.authUser.id,
-    );
-
-    return res.status(200).json({
-      message: "Schedule rescheduled successfully",
-      data: result,
-    });
-  } catch (error) {
-    const status = error.statusCode || 500;
-    return res.status(status).json({
-      success: false,
-      error: error.message || "Failed to reschedule class",
-    });
-  }
-};
-
-export const cancelSchedule = async (req, res) => {
+export const updateSchedule = async (req, res) => {
     try {
         const { id } = req.params;
-        const exception = await ClassSchedule.cancelSchedule(
-            { class_schedule_id: id, ...req.body },
-            req.authUser.id
-        );
-
-        return res.status(201).json({
-            message: "Class cancelled successfully",
-            data: exception,
-        });
+        const updated = await ClassSchedule.updateSchedule(id, req.body, req.authUser.id);
+        return res.status(200).json({ message: "Schedule updated successfully", data: updated });
     } catch (error) {
         const status = error.statusCode || 500;
-        return res.status(status).json({
-            success: false,
-            error: error.message || "Failed to cancel class",
-        });
+        return res.status(status).json({ success: false, error: error.message || "Failed to update schedule" });
+    }
+};
+
+export const deleteSchedule = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await ClassSchedule.deleteSchedule(id, req.authUser.id);
+        return res.status(200).json(result);
+    } catch (error) {
+        const status = error.statusCode || 500;
+        return res.status(status).json({ success: false, error: error.message || "Failed to delete schedule" });
     }
 };
