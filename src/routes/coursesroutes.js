@@ -7,9 +7,10 @@ import {
   getCourseById,
   getMyCourses,
 } from "../controllers/coursescontroller.js";
-import { requireAuth } from "../middleware/authMiddleware.js";
+import { requireAuth, requireRole } from "../middleware/authMiddleware.js";
 
 import express from "express";
+import { rescheduleSchedule } from "../controllers/classScheduleController.js";
 
 const router = express.Router();
 
@@ -270,5 +271,6 @@ router.patch("/courses/:id", updateCourse);
  *         description: Course not found
  */
 router.delete("/courses/:id", deleteCourseController);
+
 
 export default router;

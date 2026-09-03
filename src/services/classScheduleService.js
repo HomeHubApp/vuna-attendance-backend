@@ -78,43 +78,168 @@ class ClassSchedule {
     return data;
   }
 
-  static async getMySchedules(lecturer_id) {
-    const { data: courses, error: coursesError } = await supabaseAdmin
-      .from("courses")
-      .select("id, course_code, course_name")
-      .eq("lecturer_id", lecturer_id);
+static async getMySchedules(lecturerId) {
+    const { data: courses, error: courseError } = await supabaseAdmin
+        .from("courses")
+        .select("id, course_code, course_name")
+        .eq("lecturer_id", lecturerId);
 
-    if (coursesError) {
-      const err = new Error(coursesError.message || "Failed to fetch courses");
-      err.statusCode = 500;
-      throw err;
+    if (courseError) {
+        const err = new Error(courseError.message);
+        err.statusCode = 500;
+        throw err;
     }
 
-    if (!courses.length) {
-      return [];
-    }
+    if (!courses.length) return [];
 
     const courseIds = courses.map((c) => c.id);
     const courseMap = new Map(courses.map((c) => [c.id, c]));
 
     const { data: schedule, error: scheduleError } = await supabaseAdmin
-      .from("class_schedule")
-      .select("*")
-      .in("course_id", courseIds)
-      .eq("is_active", true);
+        .from("class_schedule")
+        .select("*")
+        .in("course_id", courseIds)
+        .eq("is_active", true);
 
     if (scheduleError) {
-      const err = new Error(scheduleError.message);
-      err.statusCode = 500;
-      throw err;
+        const err = new Error(scheduleError.message);
+        err.statusCode = 500;
+        throw err;
     }
 
+    const scheduleIds = schedule.map((s) => s.id);
+
+    const { data: exceptions } = await supabaseAdmin
+        .from("class_schedule_exceptions")
+        .select("*")
+        .in("class_schedule_id", scheduleIds);
+
+    // group exceptions by which schedule row they belong to
+    const exceptionMap = new Map();
+    (exceptions || []).forEach((ex) => {
+        if (!exceptionMap.has(ex.class_schedule_id)) {
+            exceptionMap.set(ex.class_schedule_id, []);
+        }
+        exceptionMap.get(ex.class_schedule_id).push(ex);
+    });
+
     return schedule.map((row) => ({
-      ...row,
-      course_code: courseMap.get(row.course_id)?.course_code,
-      course_name: courseMap.get(row.course_id)?.course_name,
+        ...row,
+        course_code: courseMap.get(row.course_id)?.course_code,
+        course_name: courseMap.get(row.course_id)?.course_name,
+        exceptions: exceptionMap.get(row.id) || [],
     }));
-  }
+}
+static async rescheduleSchedule({
+    class_schedule_id,
+    original_date,
+    new_date,
+    new_start_hour,
+    new_location,
+}, requestingLecturerId) {
+    if (!class_schedule_id || !original_date || !new_date) {
+        const err = new Error("class_schedule_id, original_date, and new_date are required");
+        err.statusCode = 400;
+        throw err;
+    }
+
+    // confirm this schedule slot belongs to a course this lecturer actually teaches
+    const { data: schedule, error: scheduleError } = await supabaseAdmin
+        .from("class_schedule")
+        .select("id, course_id, courses(lecturer_id)")
+        .eq("id", class_schedule_id)
+        .single();
+
+    if (scheduleError || !schedule) {
+        const err = new Error("Schedule not found");
+        err.statusCode = 404;
+        throw err;
+    }
+
+    if (schedule.courses.lecturer_id !== requestingLecturerId) {
+        const err = new Error("You are not assigned to this course");
+        err.statusCode = 403;
+        throw err;
+    }
+
+    const { data, error } = await supabaseAdmin
+        .from("class_schedule_exceptions")
+        .insert({
+            class_schedule_id,
+            original_date,
+            exception_type: "RESCHEDULED",
+            new_date,
+            new_start_hour: new_start_hour || null,
+            new_location: new_location || null,
+            created_by: requestingLecturerId,
+        })
+        .select()
+        .single();
+
+    if (error) {
+        if (error.code === "23505") {
+            // unique constraint violation — an exception already exists for this date
+            const err = new Error("An exception already exists for this occurrence. Cancel or update it first.");
+            err.statusCode = 409;
+            throw err;
+        }
+        const err = new Error(error.message);
+        err.statusCode = 500;
+        throw err;
+    }
+
+    return data;
+}
+
+static async cancelSchedule({ class_schedule_id, original_date }, requestingLecturerId) {
+    if (!class_schedule_id || !original_date) {
+        const err = new Error("class_schedule_id and original_date are required");
+        err.statusCode = 400;
+        throw err;
+    }
+
+    const { data: schedule, error: scheduleError } = await supabaseAdmin
+        .from("class_schedule")
+        .select("id, course_id, courses(lecturer_id)")
+        .eq("id", class_schedule_id)
+        .single();
+
+    if (scheduleError || !schedule) {
+        const err = new Error("Schedule not found");
+        err.statusCode = 404;
+        throw err;
+    }
+
+    if (schedule.courses.lecturer_id !== requestingLecturerId) {
+        const err = new Error("You are not assigned to this course");
+        err.statusCode = 403;
+        throw err;
+    }
+
+    const { data, error } = await supabaseAdmin
+        .from("class_schedule_exceptions")
+        .insert({
+            class_schedule_id,
+            original_date,
+            exception_type: "CANCELLED",
+            created_by: requestingLecturerId,
+        })
+        .select()
+        .single();
+
+    if (error) {
+        if (error.code === "23505") {
+            const err = new Error("An exception already exists for this occurrence. Cancel or update it first.");
+            err.statusCode = 409;
+            throw err;
+        }
+        const err = new Error(error.message);
+        err.statusCode = 500;
+        throw err;
+    }
+
+    return data;
+}
 }
 
 export default ClassSchedule;
