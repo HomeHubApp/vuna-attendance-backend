@@ -1,5 +1,5 @@
 import { requireAuth, requireRole } from "../middleware/authMiddleware.js";
-import { createSchedule, getMySchedule } from "../controllers/classScheduleController.js";
+import { createSchedule, deleteSchedule, getMySchedule, updateSchedule } from "../controllers/classScheduleController.js";
 import { Router } from "express";
 
 const classScheduleRoutes = Router();
@@ -161,5 +161,64 @@ classScheduleRoutes.post("/", requireAuth, requireRole("Lecturer"), createSchedu
  *         description: Not a Lecturer
  */
 classScheduleRoutes.get("/mine", requireAuth, requireRole("Lecturer"), getMySchedule);
+/**
+ * @swagger
+ * /class-schedule/{id}:
+ *   patch:
+ *     summary: Edit a class schedule (applies to all future occurrences — course_id cannot be changed)
+ *     tags: [Class Schedule]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               schedule_type: { type: string }
+ *               location: { type: string }
+ *               start_hour: { type: string }
+ *               duration: { type: string }
+ *               day_index: { type: string, enum: [SUN, MON, TUE, WED, THU, FRI, SAT] }
+ *               effective_start_date: { type: string }
+ *               effective_end_date: { type: string }
+ *     responses:
+ *       200:
+ *         description: Schedule updated
+ *       400:
+ *         description: No valid fields provided
+ *       403:
+ *         description: Not assigned to this course
+ *       404:
+ *         description: Schedule not found
+ *   delete:
+ *     summary: Delete a class schedule (soft delete — marks inactive, preserves history)
+ *     tags: [Class Schedule]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Schedule deleted (marked inactive)
+ *       403:
+ *         description: Not assigned to this course
+ *       404:
+ *         description: Schedule not found
+ */
+classScheduleRoutes.patch("/:id", requireAuth, requireRole("Lecturer"), updateSchedule);
+classScheduleRoutes.delete("/:id", requireAuth, requireRole("Lecturer"), deleteSchedule);
 
 export default classScheduleRoutes;
