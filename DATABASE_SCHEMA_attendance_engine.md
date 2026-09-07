@@ -23,6 +23,7 @@ Rather than maintaining a separate table of official venue coordinates, the venu
 
 ---
 CHANGES BY MR. VICTOR:
+---
 We might need to have a table for venues showing all the lecture's location in the university and their gps coordinates.
 Thus, we need to update the admin table to have a page called Lecture venue where they can add the lecture venue and pick the coordinates by going to the venue. In this case, on the Lecturer's end, the textbox for venue becomes a select input where we fetch all locations for lectures in the university. To avoid clash, if a lecturer is trying to schedule a class for a venue that has already been choosen by another lecturer, the system will flag it and ask for the lecturer to choose another venue. 
 ---
