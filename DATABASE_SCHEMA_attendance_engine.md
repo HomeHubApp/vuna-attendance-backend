@@ -21,7 +21,6 @@ Rather than maintaining a separate table of official venue coordinates, the venu
 
 **Accuracy safeguard:** the browser's Geolocation API returns an `accuracy` value (meters of possible error) alongside lat/lng. Since this single reading becomes the reference for every student's check that session, a bad fix here degrades verification for the whole class. Capture `lecturer_start_accuracy_meters` at start, and reject/retry session-start if it's above a threshold (e.g. >100m) rather than silently accepting a noisy reference point.
 
----
 ## CHANGES BY MR. VICTOR:
 
 We might need to have a table for venues showing all the lecture's location in the university and their gps coordinates.
