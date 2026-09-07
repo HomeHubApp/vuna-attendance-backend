@@ -22,8 +22,8 @@ Rather than maintaining a separate table of official venue coordinates, the venu
 **Accuracy safeguard:** the browser's Geolocation API returns an `accuracy` value (meters of possible error) alongside lat/lng. Since this single reading becomes the reference for every student's check that session, a bad fix here degrades verification for the whole class. Capture `lecturer_start_accuracy_meters` at start, and reject/retry session-start if it's above a threshold (e.g. >100m) rather than silently accepting a noisy reference point.
 
 ---
-CHANGES BY MR. VICTOR:
----
+## CHANGES BY MR. VICTOR:
+
 We might need to have a table for venues showing all the lecture's location in the university and their gps coordinates.
 Thus, we need to update the admin table to have a page called Lecture venue where they can add the lecture venue and pick the coordinates by going to the venue. In this case, on the Lecturer's end, the textbox for venue becomes a select input where we fetch all locations for lectures in the university. To avoid clash, if a lecturer is trying to schedule a class for a venue that has already been choosen by another lecturer, the system will flag it and ask for the lecturer to choose another venue. 
 ---
