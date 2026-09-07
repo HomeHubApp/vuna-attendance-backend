@@ -1,4 +1,9 @@
 import { supabaseAdmin } from "../config/supabase.js";
+import {
+  notifyScheduleCreated,
+  notifyScheduleRescheduled,
+  notifyScheduleDeleted,
+} from "../utils/classScheduleNotifications.js";
 
 const DAY_MAP = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 };
 
@@ -15,7 +20,7 @@ class ClassSchedule {
 
     const { data: course, error: courseError } = await supabaseAdmin
       .from("courses")
-      .select("id, lecturer_id")
+      .select("id, lecturer_id, course_code, course_name")
       .eq("id", course_id)
       .single();
 
@@ -48,6 +53,20 @@ class ClassSchedule {
       err.statusCode = 400;
       throw err;
     }
+
+    // This is for notifying about the newly scheduled class
+    await notifyScheduleCreated({
+      course,
+      course_id,
+      schedule_type,
+      location,
+      start_hour,
+      duration,
+      days,
+      effective_start_date,
+      effective_end_date,
+      requestingLecturerId,
+    });
 
     return data;
   }
@@ -97,7 +116,7 @@ class ClassSchedule {
 
     const { data: schedule, error: scheduleError } = await supabaseAdmin
       .from("class_schedule")
-      .select("id, course_id, courses(lecturer_id)")
+      .select("id, course_id, courses(lecturer_id, course_code, course_name)")
       .eq("id", class_schedule_id)
       .single();
 
@@ -144,6 +163,9 @@ class ClassSchedule {
       throw err;
     }
 
+    // This is for notifying about the rescheduled class
+    await notifyScheduleRescheduled({ schedule, class_schedule_id, safeUpdates, requestingLecturerId });
+
     return data;
   }
 
@@ -154,9 +176,11 @@ class ClassSchedule {
       throw err;
     }
 
+    // This is for fetching the schedule's course details, needed both for the ownership check
+    // below and to build the cancellation notification further down
     const { data: schedule, error: scheduleError } = await supabaseAdmin
       .from("class_schedule")
-      .select("id, course_id, courses(lecturer_id)")
+      .select("id, course_id, courses(lecturer_id, course_code, course_name)")
       .eq("id", class_schedule_id)
       .single();
 
@@ -172,6 +196,8 @@ class ClassSchedule {
       throw err;
     }
 
+    // This is for soft-deleting the schedule row — marks it inactive instead of removing it,
+    // so past attendance history tied to it is preserved
     const { error } = await supabaseAdmin
       .from("class_schedule")
       .update({ is_active: false })
@@ -182,6 +208,9 @@ class ClassSchedule {
       err.statusCode = 500;
       throw err;
     }
+
+    // This is for notifying about the cancelled class schedule
+    await notifyScheduleDeleted({ schedule, class_schedule_id, requestingLecturerId });
 
     return { message: "Schedule deleted successfully" };
   }
