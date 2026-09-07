@@ -9,7 +9,7 @@ Extracted from `LIVE_CLASS_ATTENDANCE_SYSTEM.md`. This covers just the schema it
 - `class_schedule` = the **recurring template** ("CSC301, Mon/Wed, 10:00-12:00, Software Lab") — already built.
 - `class_sessions` = one **live instance** of that template actually happening on a specific date. Created when a lecturer starts a particular day's class.
 - `session_attendance` = one row per student, per session — their record of being in that specific class.
-- `attendance_checks` = the periodic verification log — every 10-15 min, one row per student per check, recording where they were and whether it matched.
+- `attendance_checks` = the periodic verification log — every 10-15 min, one row per student per check, recording where they were and whether it matched. The logs will be like an array, every ten minutes, the array is updated on the table
 
 A student's attendance % for a course is just an aggregate query over `session_attendance` rows filtered by course. No separate "course attendance" table needed — it's a view on the same data.
 
