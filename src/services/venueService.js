@@ -123,3 +123,5 @@ class Venue {
     return { message: "Venue deactivated successfully", venue: data };
   }
 }
+
+export default Venue;
