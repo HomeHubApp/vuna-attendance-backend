@@ -53,10 +53,7 @@ class Venue {
 
     if (venues.length === 0) return venues;
 
-    // Attach the classes currently booked into each venue — same
-    // multi-step fetch + Map-join pattern classScheduleService.js's
-    // getMySchedules uses (course_id -> courses, here venue_id ->
-    // class_schedule -> courses -> users, so we know the lecturer's name).
+    // Change was made by me (Pathfinder) to include bookings in the venue data
     const venueIds = venues.map((v) => v.id);
 
     const { data: schedules, error: scheduleError } = await supabaseAdmin
