@@ -44,13 +44,70 @@ class Venue {
       .order("name", { ascending: true });
     if (activeOnly) query = query.eq("is_active", true);
 
-    const { data, error } = await query;
+    const { data: venues, error } = await query;
     if (error) {
       const err = new Error(error.message);
       err.statusCode = 500;
       throw err;
     }
-    return data;
+
+    if (venues.length === 0) return venues;
+
+    // Attach the classes currently booked into each venue — same
+    // multi-step fetch + Map-join pattern classScheduleService.js's
+    // getMySchedules uses (course_id -> courses, here venue_id ->
+    // class_schedule -> courses -> users, so we know the lecturer's name).
+    const venueIds = venues.map((v) => v.id);
+
+    const { data: schedules, error: scheduleError } = await supabaseAdmin
+      .from("class_schedule")
+      .select(
+        "venue_id, schedule_type, day_index, start_hour, duration, courses(course_code, course_name, lecturer_id)",
+      )
+      .in("venue_id", venueIds)
+      .eq("is_active", true);
+
+    if (scheduleError) {
+      const err = new Error(scheduleError.message);
+      err.statusCode = 500;
+      throw err;
+    }
+
+    const lecturerIds = [
+      ...new Set(schedules.map((s) => s.courses?.lecturer_id).filter(Boolean)),
+    ];
+
+    let lecturerNameById = new Map();
+    if (lecturerIds.length > 0) {
+      const { data: lecturers, error: lecturerError } = await supabaseAdmin
+        .from("users")
+        .select("id, full_name")
+        .in("id", lecturerIds);
+
+      if (lecturerError) {
+        const err = new Error(lecturerError.message);
+        err.statusCode = 500;
+        throw err;
+      }
+      lecturerNameById = new Map(lecturers.map((l) => [l.id, l.full_name]));
+    }
+
+    const bookingsByVenueId = new Map();
+    for (const s of schedules) {
+      const booking = {
+        courseCode: s.courses?.course_code ?? "",
+        courseTitle: s.courses?.course_name ?? "",
+        lecturerName: lecturerNameById.get(s.courses?.lecturer_id) ?? "Unassigned",
+        scheduleType: s.schedule_type,
+        dayIndex: s.day_index,
+        startHour: s.start_hour,
+        duration: s.duration,
+      };
+      if (!bookingsByVenueId.has(s.venue_id)) bookingsByVenueId.set(s.venue_id, []);
+      bookingsByVenueId.get(s.venue_id).push(booking);
+    }
+
+    return venues.map((v) => ({ ...v, bookings: bookingsByVenueId.get(v.id) ?? [] }));
   }
 
   static async getVenueById(id, updates) {
