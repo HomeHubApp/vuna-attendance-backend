@@ -1,9 +1,14 @@
 import { supabaseAdmin } from "../config/supabase.js";
 
-const LATE_THRESHOLD_MINUTES = process.env.LATE_THRESHOLD_MINUTES ? parseInt(process.env.LATE_THRESHOLD_MINUTES, 10) : 15;
+const LATE_THRESHOLD_MINUTES = process.env.LATE_THRESHOLD_MINUTES
+  ? parseInt(process.env.LATE_THRESHOLD_MINUTES, 10)
+  : 15;
 
 class SessionAttendance {
-  static async joinSession({ class_session_id, latitude, longitude, ip_address, device_id }, studentId) {
+  static async joinSession(
+    { class_session_id, latitude, longitude, ip_address, device_id },
+    studentId,
+  ) {
     if (!class_session_id) {
       const err = new Error("class_session_id is required");
       err.statusCode = 400;
@@ -12,7 +17,7 @@ class SessionAttendance {
 
     const { data: session, error: sessionError } = await supabaseAdmin
       .from("class_sessions")
-      .select("id, status, actual_start_at")
+      .select("id, status, actual_start_at, course_id")
       .eq("id", class_session_id)
       .single();
 
@@ -28,13 +33,26 @@ class SessionAttendance {
       throw err;
     }
 
-    // NOTE: no course-enrollment check here — enrollments table doesn't exist
-    // yet (confirmed absent, see BACKLOG.md). Any authenticated Student can
-    // join any active session right now. Revisit the moment enrollment data
-    // exists.
+    // can only join a session for a course they're actually enrolled in.
+    const { data: enrollment, error: enrollmentError } = await supabaseAdmin
+      .from("enrollments")
+      .select("id")
+      .eq("student_id", studentId)
+      .eq("course_id", session.course_id)
+      .maybeSingle();
 
-    // Idempotent join — calling this twice (e.g. a network retry) shouldn't
-    // error, it should just return what's already there.
+    if (enrollmentError) {
+      const err = new Error(enrollmentError.message);
+      err.statusCode = 500;
+      throw err;
+    }
+
+    if (!enrollment) {
+      const err = new Error("You are not enrolled in this course");
+      err.statusCode = 403;
+      throw err;
+    }
+
     const { data: existing, error: existingError } = await supabaseAdmin
       .from("session_attendance")
       .select("*")
@@ -52,8 +70,10 @@ class SessionAttendance {
       return { ...existing, message: "You have already joined this session" };
     }
 
-    const minutesSinceStart = (Date.now() - new Date(session.actual_start_at).getTime()) / 60000;
-    const status = minutesSinceStart > LATE_THRESHOLD_MINUTES ? "LATE" : "PRESENT";
+    const minutesSinceStart =
+      (Date.now() - new Date(session.actual_start_at).getTime()) / 60000;
+    const status =
+      minutesSinceStart > LATE_THRESHOLD_MINUTES ? "LATE" : "PRESENT";
 
     const { data: created, error: createError } = await supabaseAdmin
       .from("session_attendance")
@@ -145,7 +165,8 @@ class SessionAttendance {
     return attendance.map((row) => ({
       ...row,
       full_name: userMap.get(row.student_id)?.full_name,
-      institution_identifier: userMap.get(row.student_id)?.institution_identifier,
+      institution_identifier: userMap.get(row.student_id)
+        ?.institution_identifier,
     }));
   }
 }
