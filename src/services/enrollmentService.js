@@ -18,7 +18,7 @@ class Enrollment {
       .from("courses")
       .select("id, course_code, course_name, credit_unit, level, department_id")
       .eq("department_id", student.department_id)
-      .eq("level", student.current_level);
+      .eq("level", Number(student.current_level));
 
     if (coursesError) {
       const err = new Error(coursesError.message);
@@ -29,7 +29,7 @@ class Enrollment {
     return courses;
   }
 
-  static async enroll(course_id, studentId) {
+    static async enroll(course_id, studentId) {
     if (!course_id) {
       const err = new Error("course_id is required");
       err.statusCode = 400;
@@ -60,8 +60,7 @@ class Enrollment {
       throw err;
     }
 
-
-    if (course.department_id !== student.department_id || course.level !== student.current_level) {
+    if (course.department_id !== student.department_id || course.level !== Number(student.current_level)) {
       const err = new Error("You are not eligible to enroll in this course");
       err.statusCode = 403;
       throw err;
@@ -81,7 +80,9 @@ class Enrollment {
     }
 
     if (existing) {
-      return { ...existing, message: "You are already enrolled in this course" };
+      const err = new Error("You are already enrolled in this course");
+      err.statusCode = 409;
+      throw err;
     }
 
     const { data: created, error: createError } = await supabaseAdmin
@@ -91,6 +92,11 @@ class Enrollment {
       .single();
 
     if (createError) {
+      if (createError.code === "23505") {
+        const err = new Error("You are already enrolled in this course");
+        err.statusCode = 409;
+        throw err;
+      }
       const err = new Error(createError.message);
       err.statusCode = 500;
       throw err;
@@ -163,7 +169,8 @@ class Enrollment {
     return enrollments.map((row) => ({
       ...row,
       full_name: userMap.get(row.student_id)?.full_name,
-      institution_identifier: userMap.get(row.student_id)?.institution_identifier,
+      institution_identifier: userMap.get(row.student_id)
+        ?.institution_identifier,
     }));
   }
 }
