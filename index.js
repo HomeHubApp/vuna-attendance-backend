@@ -15,6 +15,7 @@ import adminRoutes from "./src/routes/adminRoutes.js";
 import classScheduleRoutes from "./src/routes/classScheduleRoutes.js";
 import notificationRoutes from "./src/routes/notificationRoutes.js";
 import venueRoutes from "./src/routes/venueRoutes.js";
+import classSessionRoutes from "./src/routes/classSessionRoutes.js";
 
 const PORT = process.env.PORT || 8000;
 const app = express();
@@ -44,6 +45,7 @@ app.use("/api/faculty", requireAuth, Facultyroutes)
 app.use("/api/class-schedule", classScheduleRoutes)
 app.use("/api/notifications", notificationRoutes)
 app.use("/api/venues", venueRoutes)
+app.use("/api/class-sessions", classSessionRoutes)
 
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
