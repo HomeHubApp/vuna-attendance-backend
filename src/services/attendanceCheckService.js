@@ -1,10 +1,9 @@
 import { supabaseAdmin } from "../config/supabase.js";
 import SessionAttendance from "./sessionAttendanceService.js";
 
-const CHECK_INTERVAL_MINUTES = parseInt(process.env.CHECK_INTERVAL_MINUTES, 10) || 10; // default to 10 if not set
-const CONSECUTIVE_FAIL_TO_FLAG = parseInt(process.env.CONSECUTIVE_FAIL_TO_FLAG, 10) || 2; // default to 2 if not set
-const CONSECUTIVE_FAIL_TO_ABSENT = parseInt(process.env.CONSECUTIVE_FAIL_TO_ABSENT, 10) || 3; // default to 3 if not set    
-
+export const CHECK_INTERVAL_MINUTES = parseInt(process.env.CHECK_INTERVAL_MINUTES, 10) || 10;
+const CONSECUTIVE_FAIL_TO_FLAG = parseInt(process.env.CONSECUTIVE_FAIL_TO_FLAG, 10) || 2; 
+const CONSECUTIVE_FAIL_TO_ABSENT = parseInt(process.env.CONSECUTIVE_FAIL_TO_ABSENT, 10) || 3; 
 
 function haversineDistanceMeters(lat1, lon1, lat2, lon2) {
   const R = 6371000;
@@ -22,7 +21,7 @@ function ipToInt(ip) {
   return ip.split(".").reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0;
 }
 
-
+// IPv4-only
 function isIpInCidr(ip, cidr) {
   const [range, bitsStr] = cidr.split("/");
   const bits = parseInt(bitsStr, 10);
@@ -69,10 +68,6 @@ class AttendanceCheck {
       throw err;
     }
 
-    // Server-side minimum-interval enforcement — independent of the HTTP
-    // rate limiter. Protects against a client distributing requests across
-    // time (rather than bursting) to sail through the limiter while still
-    // violating the actual 10-15 min check-in interval the architecture requires.
     const { data: lastCheck, error: lastCheckError } = await supabaseAdmin
       .from("attendance_checks")
       .select("checked_at")
@@ -96,7 +91,6 @@ class AttendanceCheck {
       }
     }
 
-    // GPS outcome
     let gps_outcome = "UNAVAILABLE";
     let distance = null;
     if (latitude !== undefined && latitude !== null && longitude !== undefined && longitude !== null) {
@@ -104,9 +98,6 @@ class AttendanceCheck {
       gps_outcome = distance <= session.venues.radius_meters ? "PASSED" : "FAILED";
     }
 
-    // IP outcome — UNAVAILABLE (not FAILED) whenever we genuinely can't
-    // evaluate: no IPv4 address, or no active ranges configured yet (see
-    // BACKLOG.md — blocked on Veritas' real IP range from IT/networking).
     let ip_outcome = "UNAVAILABLE";
     if (ip_address && ip_address.includes(".")) {
       const { data: ranges, error: rangesError } = await supabaseAdmin
@@ -157,6 +148,12 @@ class AttendanceCheck {
       throw err;
     }
 
+    const result = await AttendanceCheck.applyCheckOutcome(attendance, overall_match, class_session_id);
+
+    return { ...check, new_status: result.newStatus };
+  }
+
+  static async applyCheckOutcome(attendance, overall_match, class_session_id) {
     const newConsecutiveFails = overall_match ? 0 : attendance.consecutive_failed_checks + 1;
     let newStatus = attendance.status;
 
@@ -165,7 +162,7 @@ class AttendanceCheck {
     } else if (newConsecutiveFails >= CONSECUTIVE_FAIL_TO_FLAG) {
       newStatus = "FLAGGED";
     } else if (overall_match && attendance.status === "FLAGGED") {
-      newStatus = "PRESENT"; // a pass after being flagged recovers status
+      newStatus = "PRESENT";
     }
 
     const { error: updateError } = await supabaseAdmin
@@ -183,7 +180,7 @@ class AttendanceCheck {
       await SessionAttendance.recomputeHeadcount(class_session_id);
     }
 
-    return { ...check, new_status: newStatus };
+    return { newConsecutiveFails, newStatus };
   }
 }
 

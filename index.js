@@ -12,6 +12,8 @@ import departmentroutes from "./src/routes/departmentRoutes.js"
 import Facultyroutes from "./src/routes/facultyroutes.js"
 
 import { startAutoEndSessionsJob } from "./src/jobs/autoEndSessions.js";
+import { startMissedCheckInMonitorJob } from "./src/jobs/missedCheckInMonitor.js";
+
 
 
 import adminRoutes from "./src/routes/adminRoutes.js";
@@ -60,4 +62,5 @@ app.get("/health", (req, res) => res.json({ status: "ok" }));
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+startMissedCheckInMonitorJob();
 startAutoEndSessionsJob();
