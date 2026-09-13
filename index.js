@@ -11,6 +11,9 @@ import { requireAuth } from "./src/middleware/authMiddleware.js";
 import departmentroutes from "./src/routes/departmentRoutes.js"
 import Facultyroutes from "./src/routes/facultyroutes.js"
 
+import { startAutoEndSessionsJob } from "./src/jobs/autoEndSessions.js";
+
+
 import adminRoutes from "./src/routes/adminRoutes.js";
 import classScheduleRoutes from "./src/routes/classScheduleRoutes.js";
 import notificationRoutes from "./src/routes/notificationRoutes.js";
@@ -57,3 +60,4 @@ app.get("/health", (req, res) => res.json({ status: "ok" }));
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+startAutoEndSessionsJob();
