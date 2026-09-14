@@ -19,6 +19,8 @@ import { startMissedCheckInMonitorJob } from "./src/jobs/missedCheckInMonitor.js
 import adminRoutes from "./src/routes/adminRoutes.js";
 import classScheduleRoutes from "./src/routes/classScheduleRoutes.js";
 import notificationRoutes from "./src/routes/notificationRoutes.js";
+import systemSettingsRoutes from "./src/routes/systemSettingsRoutes.js";
+import academicSessionRoutes from "./src/routes/academicSessionRoutes.js";
 import venueRoutes from "./src/routes/venueRoutes.js";
 import classSessionRoutes from "./src/routes/classSessionRoutes.js";
 import enrollmentRoutes from "./src/routes/enrollmentRoutes.js";
@@ -52,6 +54,8 @@ app.use("/api/faculty", requireAuth, Facultyroutes)
 
 app.use("/api/class-schedule", classScheduleRoutes)
 app.use("/api/notifications", notificationRoutes)
+app.use("/api/settings", systemSettingsRoutes)
+app.use("/api/academic-sessions", academicSessionRoutes)
 app.use("/api/venues", venueRoutes)
 app.use("/api/class-sessions", classSessionRoutes)
 app.use("/api/enrollments", enrollmentRoutes)

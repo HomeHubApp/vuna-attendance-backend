@@ -21,7 +21,25 @@ const enrollmentRoutes = Router();
  *       - cookieAuth: []
  *     responses:
  *       200:
- *         description: List of eligible courses
+ *         description: List of eligible courses, each including the assigned lecturer's id and resolved full name
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: string, format: uuid }
+ *                       course_code: { type: string, example: "CSC301" }
+ *                       course_name: { type: string, example: "Software Engineering" }
+ *                       credit_unit: { type: integer, example: 3 }
+ *                       level: { type: integer, example: 300 }
+ *                       department_id: { type: string, format: uuid }
+ *                       lecturer_id: { type: string, format: uuid, nullable: true }
+ *                       lecturer_name: { type: string, nullable: true, example: "Dr. Samuel Okafor" }
  *       404:
  *         description: Student record not found
  */

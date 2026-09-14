@@ -34,6 +34,7 @@ const courseCreationLimiter = rateLimit({
  *         - department_id
  *         - credit_unit
  *         - lecturer_id
+ *         - semester
  *       properties:
  *         id:
  *           type: string
@@ -63,7 +64,12 @@ const courseCreationLimiter = rateLimit({
  *           type: string
  *           description: The ID of the lecturer assigned
  *           example: "lect-789"
- * 
+ *         semester:
+ *           type: integer
+ *           enum: [1, 2]
+ *           description: Which semester the course runs in — 1 = first semester, 2 = second semester
+ *           example: 1
+ *
  *     CourseInput:
  *       type: object
  *       required:
@@ -73,6 +79,7 @@ const courseCreationLimiter = rateLimit({
  *         - department_id
  *         - credit_unit
  *         - lecturer_id
+ *         - semester
  *       properties:
  *         course_code:
  *           type: string
@@ -92,7 +99,12 @@ const courseCreationLimiter = rateLimit({
  *         lecturer_id:
  *           type: string
  *           example: "lect-789"
- * 
+ *         semester:
+ *           type: integer
+ *           enum: [1, 2]
+ *           description: 1 = first semester, 2 = second semester
+ *           example: 1
+ *
  *     CourseUpdateInput:
  *       type: object
  *       properties:
@@ -114,6 +126,11 @@ const courseCreationLimiter = rateLimit({
  *         lecturer_id:
  *           type: string
  *           example: "lect-789"
+ *         semester:
+ *           type: integer
+ *           enum: [1, 2]
+ *           description: 1 = first semester, 2 = second semester
+ *           example: 2
  */
 
 /**

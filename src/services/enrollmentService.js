@@ -16,7 +16,7 @@ class Enrollment {
 
     const { data: courses, error: coursesError } = await supabaseAdmin
       .from("courses")
-      .select("id, course_code, course_name, credit_unit, level, department_id")
+      .select("id, course_code, course_name, credit_unit, level, department_id, lecturer_id")
       .eq("department_id", student.department_id)
       .eq("level", Number(student.current_level));
 
@@ -26,7 +26,31 @@ class Enrollment {
       throw err;
     }
 
-    return courses;
+    if (!courses.length) return courses;
+
+    // Same two-step join getCourseRoster uses below — courses only stores
+    // lecturer_id, so the lecturer's name is resolved with a second query
+    // against users rather than a Supabase embed.
+    const lecturerIds = [...new Set(courses.map((c) => c.lecturer_id).filter(Boolean))];
+    let lecturerNameById = new Map();
+    if (lecturerIds.length > 0) {
+      const { data: lecturers, error: lecturerError } = await supabaseAdmin
+        .from("users")
+        .select("id, full_name")
+        .in("id", lecturerIds);
+
+      if (lecturerError) {
+        const err = new Error(lecturerError.message);
+        err.statusCode = 500;
+        throw err;
+      }
+      lecturerNameById = new Map(lecturers.map((l) => [l.id, l.full_name]));
+    }
+
+    return courses.map((course) => ({
+      ...course,
+      lecturer_name: lecturerNameById.get(course.lecturer_id) ?? null,
+    }));
   }
 
     static async enroll(course_id, studentId) {

@@ -1,19 +1,25 @@
 import { supabaseAdmin } from "../config/supabase.js";
 
 class Courses {
-  static async createcourses({ course_code, course_name, level, department_id, credit_unit, lecturer_id }) {
-   
+  static async createcourses({ course_code, course_name, level, department_id, credit_unit, lecturer_id, semester }) {
+
     const code = course_code?.trim().toUpperCase();
     const cleanedName = course_name?.trim();
 
-    
-    if (!code || !cleanedName || !level || !department_id || !credit_unit || !lecturer_id) {
+
+    if (!code || !cleanedName || !level || !department_id || !credit_unit || !lecturer_id || !semester) {
       const err = new Error("Please provide all required fields");
       err.statusCode = 400;
       throw err;
     }
 
-    
+    // This is for validating semester is one of the two allowed values — 1 = first semester, 2 = second semester
+    if (![1, 2].includes(Number(semester))) {
+      const err = new Error("semester must be 1 (first semester) or 2 (second semester)");
+      err.statusCode = 400;
+      throw err;
+    }
+
     const { data, error } = await supabaseAdmin
       .from("courses")
       .insert({
@@ -23,8 +29,9 @@ class Courses {
         department_id,
         credit_unit,
         lecturer_id,
+        semester: Number(semester),
       })
-      .select(); 
+      .select();
 
     if (error) {
       const err = new Error(error.message || "Failed to create course");
@@ -123,6 +130,16 @@ static async getAllCourses() {
       const err = new Error("Course ID is required");
       err.statusCode = 400;
       throw err;
+    }
+
+    // This is for validating semester when it's included in a partial update — same 1/2 rule as create
+    if (updates.semester !== undefined) {
+      if (![1, 2].includes(Number(updates.semester))) {
+        const err = new Error("semester must be 1 (first semester) or 2 (second semester)");
+        err.statusCode = 400;
+        throw err;
+      }
+      updates.semester = Number(updates.semester);
     }
 
     const { data, error } = await supabaseAdmin
