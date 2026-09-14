@@ -2,8 +2,8 @@ import { supabase, supabaseAdmin } from "../config/supabase.js";
 import { generateDefaultPassword } from "../utils/generatePassword.js";
 import { validatePassword } from "../utils/validatePassword.js";
 import { generateOtp, hashOtp, otpExpiry } from "../utils/otp.js";
-import { sendOtpEmail } from "../utils/sendEmail.js";
 import { ROLES, STAFF_ROLES, UNIVERSITY_DOMAIN } from "../constants/roles.js";
+import { sendOtpEmail, sendWelcomeEmail, sendPasswordRegeneratedEmail } from "../utils/sendEmail.js";
 
 
 export async function refreshSession(refreshToken) {
@@ -155,13 +155,30 @@ export async function adminCreateUser({
         }
     }
  
+    let email_sent = false;
+
+    if (email) {
+        try {
+            await sendWelcomeEmail(email, {
+                full_name: name,
+                institution_identifier: identifier,
+                default_password: DEFAULT_PASSWORD,
+            });
+            email_sent = true;
+        } catch (emailError) {
+            
+            console.error("Failed to send welcome email:", emailError.message);
+        }
+    }
+
     return {
         id: data.user.id,
         institution_identifier: identifier,
         full_name: name,
-        email: normalizedEmail || null,
+        email: email || null,
         role,
         default_password: DEFAULT_PASSWORD,
+        email_sent,
     };
 }
 async function getUserRoleNames(userId) {
@@ -434,7 +451,7 @@ export async function regenerateDefaultPassword(userId) {
 
     const { data: existingUser, error: fetchError } = await supabaseAdmin
         .from("users")
-        .select("id, status")
+        .select("id, status, email, full_name, institution_identifier")
         .eq("id", userId)
         .single();
 
@@ -468,7 +485,21 @@ export async function regenerateDefaultPassword(userId) {
         throw err;
     }
 
-    return { user_id: userId, default_password: newPassword };
+    let email_sent = false;
+    if (existingUser.email) {
+        try {
+            await sendPasswordRegeneratedEmail(existingUser.email, {
+                full_name: existingUser.full_name,
+                institution_identifier: existingUser.institution_identifier,
+                new_password: newPassword,
+            });
+            email_sent = true;
+        } catch (emailError) {
+            console.error("Failed to send password-regenerated email:", emailError.message);
+        }
+    }
+
+    return { user_id: userId, password_generated: true, email_sent };
 }
 
 export async function verifyEmailOtp(authUserId, submittedOtp) {

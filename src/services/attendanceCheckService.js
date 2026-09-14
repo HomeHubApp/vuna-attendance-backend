@@ -185,3 +185,14 @@ class AttendanceCheck {
 }
 
 export default AttendanceCheck;
+
+//session semeter course enrollment
+
+//auto enrollment instsad of enriolling for a course them siekve . when ever onboarede t eocurses is austomatically assigned
+//we mught need to ulter he courses. we might need to add a session by session logic (2025, 2026) adn semester
+
+
+//on admin they updtae the cureent session-sememter- global 
+//so they automatically
+
+//so basiclaly a new table for session, right now you enrollfor a course as a studnet but we dont enat tht we want it to be done automcaticlly formth edmain panil while also accomat=dation sessionadn semeter
