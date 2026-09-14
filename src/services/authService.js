@@ -204,7 +204,7 @@ export async function login({ institution_identifier, password }) {
 
     let query = supabaseAdmin
         .from("users")
-        .select("id, institution_identifier, email, full_name, is_default_password, status");
+        .select("id, institution_identifier, email, full_name, is_default_password, status, email_verified_at");
 
     query = isEmail
         ? query.eq("email", identifier.toLowerCase())
@@ -263,6 +263,14 @@ export async function login({ institution_identifier, password }) {
         const err = new Error("Invalid login credentials");
         err.statusCode = 401;
         throw err;
+    }
+
+    if (user.is_default_password && user.email && !user.email_verified_at) {
+        try {
+            await sendEmailVerificationOtp(user.id);
+        } catch (otpError) {
+            console.error("Failed to auto-send first-login verification OTP:", otpError.message);
+        }
     }
 
     return {
