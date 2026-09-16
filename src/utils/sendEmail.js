@@ -1,5 +1,4 @@
 export async function sendOtpEmail(to, otp, purpose) {
-    console.log("sendOtpEmail called with:", to, purpose); // temporary
     const subject = purpose === "EMAIL_VERIFICATION"
         ? "Verify your email — Veritas Attendance"
         : "Password reset code — Veritas Attendance";
@@ -27,12 +26,11 @@ export async function sendOtpEmail(to, otp, purpose) {
     });
 
     if (!response.ok) {
-    const errorBody = await response.json().catch(() => ({}));
-    console.log("Brevo error response:", errorBody); // temporary — remove after debugging
-    throw new Error(
-        `Failed to send email: ${errorBody.message || response.statusText}`
-    );
-}
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(`Failed to send email: ${errorBody.message || response.statusText}`);
+    }
+
+    console.log(`OTP email accepted by Brevo: ${to} (${purpose})`);
 }
 
 export async function sendWelcomeEmail(to, { full_name, institution_identifier, default_password }) {

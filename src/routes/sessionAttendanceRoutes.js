@@ -1,13 +1,13 @@
 import { Router } from "express";
 import { requireAuth, requireRole } from "../middleware/authMiddleware.js";
 import { joinSession, getSessionAttendance } from "../controllers/sessionAttendanceController.js";
-import rateLimit from "express-rate-limit";
+import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 
 const sessionAttendanceRoutes = Router();
 const joinSessionLimiter = rateLimit({
     windowMs: 60 * 1000,
     max: 10,
-    keyGenerator: (req) => req.authUser?.id || req.ip,
+    keyGenerator: (req) => req.authUser?.id || ipKeyGenerator(req.ip),
     message: { error: "Too many join attempts. Please slow down." },
 });
 

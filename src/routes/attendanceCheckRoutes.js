@@ -1,5 +1,5 @@
 import { Router } from "express";
-import rateLimit from "express-rate-limit";
+import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 import { requireAuth, requireRole } from "../middleware/authMiddleware.js";
 import { checkIn } from "../controllers/attendanceCheckController.js";
 
@@ -11,7 +11,7 @@ const attendanceCheckRoutes = Router();
 const checkInLimiter = rateLimit({
     windowMs: 10 * 60 * 1000,
     max: 5,
-    keyGenerator: (req) => req.authUser?.id || req.ip,
+    keyGenerator: (req) => req.authUser?.id || ipKeyGenerator(req.ip),
     message: { error: "Too many verification attempts. Please wait before trying again." },
 });
 
