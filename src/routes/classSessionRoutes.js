@@ -35,7 +35,7 @@ const classSessionRoutes = Router();
  *       201:
  *         description: Session started. May include a non-blocking `warning` if venue_verified is false.
  *       400:
- *         description: Wrong day, outside effective date range, missing venue, or accuracy too poor
+ *         description: Wrong day, outside effective date range, missing venue, scheduled start time not reached yet, or accuracy too poor
  *       403:
  *         description: Not assigned to this course
  *       404:

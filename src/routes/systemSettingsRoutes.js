@@ -98,6 +98,37 @@ const systemSettingsRoutes = Router();
  */
 systemSettingsRoutes.get("/", requireAuth, requireRole("Admin"), getSettings);
 
+// This is for the GET /settings/current route — same data as GET /settings,
+// but open to any authenticated role. Lecturers and students need to read
+// require_location_verification / require_wifi_verification (and the
+// current academic session) to drive their own attendance flows, but
+// GET / above is intentionally Admin-only since it's the settings page's
+// own data source — this is the read-only, role-agnostic equivalent.
+/**
+ * @swagger
+ * /settings/current:
+ *   get:
+ *     summary: Get the institution-wide academic session and attendance policy (any authenticated role)
+ *     tags: [System Settings]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Settings fetched
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   $ref: '#/components/schemas/SystemSettings'
+ *       401:
+ *         description: Not authenticated
+ */
+systemSettingsRoutes.get("/current", requireAuth, getSettings);
+
 // This is for the PATCH /settings route — only Admins can change institution-wide policy
 /**
  * @swagger
