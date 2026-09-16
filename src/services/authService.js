@@ -97,6 +97,11 @@ export async function adminCreateUser({
  
     if (insertError) {
         await supabaseAdmin.auth.admin.deleteUser(data.user.id);
+        if (insertError.code === "23505") {
+            const err = new Error("An account with this institution identifier already exists.");
+            err.statusCode = 409;
+            throw err;
+        }
         const err = new Error(insertError.message);
         err.statusCode = 500;
         throw err;
@@ -415,9 +420,26 @@ export async function sendEmailVerificationOtp(authUserId) {
 
 export async function changePassword(authUserId, newPassword) {
     const validationError = validatePassword(newPassword);
-
     if (validationError) {
         const err = new Error(validationError);
+        err.statusCode = 400;
+        throw err;
+    }
+
+    const { data: user, error: lookupError } = await supabaseAdmin
+        .from("users")
+        .select("email, email_verified_at")
+        .eq("id", authUserId)
+        .single();
+
+    if (lookupError || !user) {
+        const err = new Error("User not found");
+        err.statusCode = 404;
+        throw err;
+    }
+
+    if (user.email && !user.email_verified_at) {
+        const err = new Error("Please verify your email before changing your password.");
         err.statusCode = 400;
         throw err;
     }
@@ -435,10 +457,7 @@ export async function changePassword(authUserId, newPassword) {
 
     const { error: updateError } = await supabaseAdmin
         .from("users")
-        .update({
-            is_default_password: false,
-            last_login_at: new Date().toISOString(),
-        })
+        .update({ is_default_password: false, last_login_at: new Date().toISOString() })
         .eq("id", authUserId);
 
     if (updateError) {
