@@ -107,7 +107,23 @@ class Venue {
     return venues.map((v) => ({ ...v, bookings: bookingsByVenueId.get(v.id) ?? [] }));
   }
 
-  static async getVenueById(id, updates) {
+  static async getVenueById(id) {
+    const { data, error } = await supabaseAdmin
+      .from("venues")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (error || !data) {
+      const err = new Error("Venue not found");
+      err.statusCode = 404;
+      throw err;
+    }
+
+    return data;
+  }
+
+  static async updateVenue(id, updates) {
     const allowedFields = [
       "name",
       "latitude",
@@ -124,7 +140,6 @@ class Venue {
       const err = new Error("No valid fields to update");
       err.statusCode = 400;
       throw err;
-      q;
     }
 
     const { data, error } = await supabaseAdmin

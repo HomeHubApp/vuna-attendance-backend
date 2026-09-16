@@ -219,7 +219,7 @@ class ClassSchedule {
       throw err;
     }
 
-    // course_id is deliberately excluded — locked, never editable
+    // course_id is deliberately excluded, locked, never editable
     const allowedFields = ["schedule_type", "venue_id", "start_hour", "duration", "day_index", "effective_start_date", "effective_end_date"];
     const safeUpdates = {};
     for (const key of allowedFields) {
