@@ -1,5 +1,5 @@
 import { requireAuth, requireRole } from "../middleware/authMiddleware.js";
-import { createSchedule, deleteSchedule, getMySchedule, updateSchedule } from "../controllers/classScheduleController.js";
+import { createSchedule, deleteSchedule, getMySchedule, getMyScheduleAsStudent, updateSchedule } from "../controllers/classScheduleController.js";
 import { Router } from "express";
 
 const classScheduleRoutes = Router();
@@ -27,9 +27,21 @@ const classScheduleRoutes = Router();
  *         schedule_type:
  *           type: string
  *           example: Lecture
- *         location:
+ *         venue_id:
  *           type: string
- *           example: LT1
+ *           format: uuid
+ *         venues:
+ *           type: object
+ *           nullable: true
+ *           description: Joined venue details for venue_id
+ *           properties:
+ *             name:
+ *               type: string
+ *               example: LT1
+ *             latitude:
+ *               type: number
+ *             longitude:
+ *               type: number
  *         start_hour:
  *           type: string
  *           example: "10:00:00"
@@ -57,7 +69,7 @@ const classScheduleRoutes = Router();
  *
  *     CreateScheduleInput:
  *       type: object
- *       required: [course_id, days]
+ *       required: [course_id, venue_id, days]
  *       properties:
  *         course_id:
  *           type: string
@@ -66,9 +78,10 @@ const classScheduleRoutes = Router();
  *         schedule_type:
  *           type: string
  *           example: Lecture
- *         location:
+ *         venue_id:
  *           type: string
- *           example: LT1
+ *           format: uuid
+ *           description: Must reference an existing venue — conflicts are checked per venue/day/time
  *         start_hour:
  *           type: string
  *           example: "10:00"
@@ -128,6 +141,8 @@ const classScheduleRoutes = Router();
  *         description: Not a Lecturer, or not assigned to the specified course
  *       404:
  *         description: Course not found
+ *       409:
+ *         description: The venue is already booked for an overlapping day/time within the effective date range
  */
 classScheduleRoutes.post("/", requireAuth, requireRole("Lecturer"), createSchedule);
  
@@ -161,6 +176,39 @@ classScheduleRoutes.post("/", requireAuth, requireRole("Lecturer"), createSchedu
  *         description: Not a Lecturer
  */
 classScheduleRoutes.get("/mine", requireAuth, requireRole("Lecturer"), getMySchedule);
+
+/**
+ * @swagger
+ * /class-schedule/mine/student:
+ *   get:
+ *     summary: Get the logged-in student's full recurring timetable, for courses matching their department + level
+ *     tags: [Class Schedule]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: All active schedule rows for courses matching this student's department + level (same basis GET /enrollments/eligible-courses uses)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 count:
+ *                   type: integer
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/ClassSchedule'
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not a Student
+ *       404:
+ *         description: Student record not found
+ */
+classScheduleRoutes.get("/mine/student", requireAuth, requireRole("Student"), getMyScheduleAsStudent);
 /**
  * @swagger
  * /class-schedule/{id}:
@@ -183,7 +231,7 @@ classScheduleRoutes.get("/mine", requireAuth, requireRole("Lecturer"), getMySche
  *             type: object
  *             properties:
  *               schedule_type: { type: string }
- *               location: { type: string }
+ *               venue_id: { type: string, format: uuid }
  *               start_hour: { type: string }
  *               duration: { type: string }
  *               day_index: { type: string, enum: [SUN, MON, TUE, WED, THU, FRI, SAT] }
@@ -198,6 +246,8 @@ classScheduleRoutes.get("/mine", requireAuth, requireRole("Lecturer"), getMySche
  *         description: Not assigned to this course
  *       404:
  *         description: Schedule not found
+ *       409:
+ *         description: The venue is already booked for an overlapping day/time within the effective date range (only checked when a conflict-relevant field changes)
  *   delete:
  *     summary: Delete a class schedule (soft delete — marks inactive, preserves history)
  *     tags: [Class Schedule]

@@ -141,6 +141,59 @@ class ClassSchedule {
     }));
   }
 
+  // This function retrieves the schedule for a student based on their user ID. 
+  // It first fetches the student's department and current level, then retrieves the 
+  // courses they are enrolled in, and finally fetches the class schedule for those 
+  // courses. The result is an array of schedule entries with course details included.
+  static async getMyScheduleAsStudent(studentUserId) {
+    const { data: student, error: studentError } = await supabaseAdmin
+      .from("students")
+      .select("department_id, current_level")
+      .eq("user_id", studentUserId)
+      .single();
+
+    if (studentError || !student) {
+      const err = new Error("Student record not found");
+      err.statusCode = 404;
+      throw err;
+    }
+
+    const { data: courses, error: coursesError } = await supabaseAdmin
+      .from("courses")
+      .select("id, course_code, course_name")
+      .eq("department_id", student.department_id)
+      .eq("level", Number(student.current_level));
+
+    if (coursesError) {
+      const err = new Error(coursesError.message);
+      err.statusCode = 500;
+      throw err;
+    }
+
+    if (!courses.length) return [];
+
+    const courseIds = courses.map((c) => c.id);
+    const courseMap = new Map(courses.map((c) => [c.id, c]));
+
+    const { data: schedule, error: scheduleError } = await supabaseAdmin
+      .from("class_schedule")
+      .select("*, venues(name, latitude, longitude)")
+      .in("course_id", courseIds)
+      .eq("is_active", true);
+
+    if (scheduleError) {
+      const err = new Error(scheduleError.message);
+      err.statusCode = 500;
+      throw err;
+    }
+
+    return schedule.map((row) => ({
+      ...row,
+      course_code: courseMap.get(row.course_id)?.course_code,
+      course_name: courseMap.get(row.course_id)?.course_name,
+    }));
+  }
+
   static async updateSchedule(class_schedule_id, updates, requestingLecturerId) {
     if (!class_schedule_id) {
       const err = new Error("class_schedule_id is required");
