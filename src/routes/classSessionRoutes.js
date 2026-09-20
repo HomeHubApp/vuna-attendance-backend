@@ -1,6 +1,12 @@
 import { Router } from "express";
 import { requireAuth, requireRole } from "../middleware/authMiddleware.js";
-import { startSession, endSession, getActiveSessions } from "../controllers/classSessionController.js";
+import {
+  startSession,
+  endSession,
+  getActiveSessions,
+  getMySessions,
+  getActiveSessionsAsStudent,
+} from "../controllers/classSessionController.js";
 
 const classSessionRoutes = Router();
 
@@ -83,5 +89,52 @@ classSessionRoutes.post("/:id/end", requireAuth, requireRole("Lecturer"), endSes
  *         description: List of active sessions for this lecturer
  */
 classSessionRoutes.get("/active", requireAuth, requireRole("Lecturer"), getActiveSessions);
+
+/**
+ * @swagger
+ * /class-sessions/mine:
+ *   get:
+ *     summary: Get the logged-in lecturer's sessions (active and ended), newest first
+ *     tags: [Class Sessions]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: from
+ *         schema: { type: string, format: date }
+ *         description: Earliest session_date (inclusive)
+ *       - in: query
+ *         name: to
+ *         schema: { type: string, format: date }
+ *         description: Latest session_date (inclusive)
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [ACTIVE, ENDED] }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 200, maximum: 500 }
+ *     responses:
+ *       200:
+ *         description: The lecturer's sessions
+ *       400:
+ *         description: Invalid filter
+ */
+classSessionRoutes.get("/mine", requireAuth, requireRole("Lecturer"), getMySessions);
+
+/**
+ * @swagger
+ * /class-sessions/active/student:
+ *   get:
+ *     summary: Get currently active sessions for courses matching the logged-in student's department + level
+ *     tags: [Class Sessions]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: List of active sessions for this student's eligible courses
+ *       404:
+ *         description: Student record not found
+ */
+classSessionRoutes.get("/active/student", requireAuth, requireRole("Student"), getActiveSessionsAsStudent);
 
 export default classSessionRoutes;

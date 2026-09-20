@@ -33,6 +33,10 @@ const systemSettingsRoutes = Router();
  *           type: integer
  *           description: Minimum attendance percentage required for exam eligibility
  *           example: 75
+ *         expected_classes_per_semester:
+ *           type: integer
+ *           description: How many classes a course is expected to hold in a semester — the denominator for a student's semester attendance percentage (default 12)
+ *           example: 12
  *         require_location_verification:
  *           type: boolean
  *           description: Students must have location enabled to be marked present
@@ -62,6 +66,11 @@ const systemSettingsRoutes = Router();
  *         min_attendance_percentage:
  *           type: integer
  *           example: 75
+ *         expected_classes_per_semester:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           example: 12
  *         require_location_verification:
  *           type: boolean
  *           example: true

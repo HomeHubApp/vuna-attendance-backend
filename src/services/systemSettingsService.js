@@ -27,6 +27,7 @@ class SystemSettings {
       "academic_year",
       "semester",
       "min_attendance_percentage",
+      "expected_classes_per_semester",
       "require_location_verification",
       "require_wifi_verification",
     ];
@@ -72,6 +73,17 @@ class SystemSettings {
         throw err;
       }
       safeUpdates.min_attendance_percentage = percentage;
+    }
+
+    // This is for validating the expected class count is a whole number of classes, when provided
+    if (safeUpdates.expected_classes_per_semester !== undefined) {
+      const count = Number(safeUpdates.expected_classes_per_semester);
+      if (!Number.isInteger(count) || count < 1 || count > 100) {
+        const err = new Error("expected_classes_per_semester must be a whole number between 1 and 100");
+        err.statusCode = 400;
+        throw err;
+      }
+      safeUpdates.expected_classes_per_semester = count;
     }
 
     // This is for recording who last changed the settings and when

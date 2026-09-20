@@ -1,4 +1,5 @@
 import Courses from "../services/courseservice.js";
+import CourseStats from "../services/courseStatsService.js";
 export const createcourses = async (req, res) => {
   try {
     const create_course = await Courses.createcourses(req.body);
@@ -44,6 +45,19 @@ export const getMyCourses = async (req, res) => {
     return res.status(status).json({
       success: false,
       error: error.message || "Failed to fetch your courses",
+    });
+  }
+};
+export const getMyCourseStats = async (req, res) => {
+  try {
+    const stats = await CourseStats.getMyCourseStats(req.authUser.id);
+    return res.status(200).json({ message: "Course stats retrieved successfully", data: stats });
+  } catch (error) {
+    const status = error.statusCode || 500;
+    console.log(error.message);
+    return res.status(status).json({
+      success: false,
+      error: error.message || "Failed to fetch your course stats",
     });
   }
 };

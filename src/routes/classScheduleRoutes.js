@@ -55,7 +55,7 @@ const classScheduleRoutes = Router();
  *         lecture_date:
  *           type: string
  *           nullable: true
- *           description: Only set for one-off overrides (a single date moved/cancelled). Null for normal recurring rows.
+ *           description: Set only for a Fixed Class — a one-off class on this single date (its effective_start_date and effective_end_date equal it). Null for normal recurring rows.
  *         effective_start_date:
  *           type: string
  *           example: "2026-08-25"
@@ -69,7 +69,8 @@ const classScheduleRoutes = Router();
  *
  *     CreateScheduleInput:
  *       type: object
- *       required: [course_id, venue_id, days]
+ *       required: [course_id, venue_id, start_hour, duration]
+ *       description: Send `days` (plus the effective dates) for a recurring schedule, or `lecture_date` alone for a Fixed Class — a one-off on that single date, today or later.
  *       properties:
  *         course_id:
  *           type: string
@@ -101,13 +102,17 @@ const classScheduleRoutes = Router();
  *         effective_end_date:
  *           type: string
  *           example: "2026-12-05"
+ *         lecture_date:
+ *           type: string
+ *           example: "2026-09-26"
+ *           description: Creates a Fixed Class on this single date instead of a recurring schedule (days and the effective dates are ignored). Must be today or later.
  */
  
 /**
  * @swagger
  * /class-schedule:
  *   post:
- *     summary: Create a recurring class schedule for one of the logged-in lecturer's courses
+ *     summary: Create a recurring class schedule, or a one-off Fixed Class (via lecture_date), for one of the logged-in lecturer's courses
  *     tags: [Class Schedule]
  *     security:
  *       - cookieAuth: []
@@ -142,7 +147,7 @@ const classScheduleRoutes = Router();
  *       404:
  *         description: Course not found
  *       409:
- *         description: The venue is already booked for an overlapping day/time within the effective date range
+ *         description: Breaks a scheduling rule — the course already has a class at an overlapping time, the venue is already booked, or the course already has a recurring lecture that day (a Fixed Class is exempt from that last one)
  */
 classScheduleRoutes.post("/", requireAuth, requireRole("Lecturer"), createSchedule);
  
@@ -237,17 +242,18 @@ classScheduleRoutes.get("/mine/student", requireAuth, requireRole("Student"), ge
  *               day_index: { type: string, enum: [SUN, MON, TUE, WED, THU, FRI, SAT] }
  *               effective_start_date: { type: string }
  *               effective_end_date: { type: string }
+ *               lecture_date: { type: string, description: "Fixed Class only — moves the one-off to a new date (today or later)" }
  *     responses:
  *       200:
  *         description: Schedule updated
  *       400:
- *         description: No valid fields provided
+ *         description: No valid fields provided, a duration under 15 minutes, or a Fixed Class dated in the past
  *       403:
  *         description: Not assigned to this course
  *       404:
  *         description: Schedule not found
  *       409:
- *         description: The venue is already booked for an overlapping day/time within the effective date range (only checked when a conflict-relevant field changes)
+ *         description: Breaks a scheduling rule — the course already has a class at an overlapping time, the venue is already booked, or the course already has a recurring lecture that day (a Fixed Class is exempt from that last one). Every rule is re-checked on every edit.
  *   delete:
  *     summary: Delete a class schedule (soft delete — marks inactive, preserves history)
  *     tags: [Class Schedule]

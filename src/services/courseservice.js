@@ -43,10 +43,22 @@ class Courses {
   }
 
 
+  /**
+   * The courses a lecturer teaches, each with its owning department's name
+   * as `departments: { name } | null` (null when the course has no
+   * department or it was deleted).
+   *
+   * The names come from a second small query rather than a PostgREST
+   * `departments(name)` embed, so this doesn't depend on courses.department_id
+   * being declared as a foreign key — the response shape is what an embed
+   * would return, so it can be swapped for one later without touching callers.
+   *
+   * @param {string} lecturer_id - auth user id of the lecturer.
+   */
   static async getMyCourses(lecturer_id) {
     const { data, error } = await supabaseAdmin
     .from("courses")
-    .select("id, course_code, course_name")
+    .select("id, course_code, course_name, level, credit_unit, semester, department_id")
     .eq("lecturer_id", lecturer_id);
 
     if (error) {
@@ -54,7 +66,27 @@ class Courses {
       err.statusCode = 400;
       throw err;
     }
-  return data;
+
+    const departmentIds = [...new Set(data.map((course) => course.department_id).filter(Boolean))];
+    const departmentNames = new Map();
+    if (departmentIds.length > 0) {
+      const { data: departments, error: departmentsError } = await supabaseAdmin
+        .from("departments")
+        .select("id, name")
+        .in("id", departmentIds);
+
+      if (departmentsError) {
+        const err = new Error(departmentsError.message || "Failed to fetch departments");
+        err.statusCode = 400;
+        throw err;
+      }
+      for (const department of departments) departmentNames.set(department.id, department.name);
+    }
+
+    return data.map(({ department_id, ...course }) => ({
+      ...course,
+      departments: departmentNames.has(department_id) ? { name: departmentNames.get(department_id) } : null,
+    }));
 }
 static async getAllCourses() {
  

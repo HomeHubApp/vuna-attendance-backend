@@ -331,11 +331,115 @@ class ClassSession {
    *   course's `course_code`/`course_name` and venue `name`/`latitude`/`longitude`.
    * @throws {Error} 500 on a database read failure.
    */
+  /**
+   * The logged-in lecturer's sessions, newest first — the history the
+   * Courses page reads to know which occurrences already ran (so a class
+   * that was started and ended early isn't offered for a second start).
+   *
+   * @param {string} lecturerId - auth user id of the logged-in lecturer.
+   * @param {{ from?: string, to?: string, status?: "ACTIVE"|"ENDED", limit?: number }} [filters]
+   *   from/to bound session_date (YYYY-MM-DD, inclusive).
+   */
+  static async getMySessions(lecturerId, { from, to, status, limit } = {}) {
+    if (status && !["ACTIVE", "ENDED"].includes(status)) {
+      const err = new Error("status must be ACTIVE or ENDED");
+      err.statusCode = 400;
+      throw err;
+    }
+    const isDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value);
+    if ((from && !isDate(from)) || (to && !isDate(to))) {
+      const err = new Error("from and to must be dates in YYYY-MM-DD format");
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const rowLimit = Math.min(Math.max(parseInt(limit, 10) || 200, 1), 500);
+
+    let query = supabaseAdmin
+      .from("class_sessions")
+      .select("*, courses(course_code, course_name), venues(name, latitude, longitude)")
+      .eq("lecturer_id", lecturerId)
+      .order("scheduled_start_at", { ascending: false })
+      .limit(rowLimit);
+
+    if (status) query = query.eq("status", status);
+    if (from) query = query.gte("session_date", from);
+    if (to) query = query.lte("session_date", to);
+
+    const { data, error } = await query;
+    if (error) {
+      const err = new Error(error.message);
+      err.statusCode = 500;
+      throw err;
+    }
+
+    return data;
+  }
+
   static async getActiveSessions(lecturerId) {
     const { data, error } = await supabaseAdmin
       .from("class_sessions")
       .select("*, courses(course_code, course_name), venues(name, latitude, longitude)")
       .eq("lecturer_id", lecturerId)
+      .eq("status", "ACTIVE");
+
+    if (error) {
+      const err = new Error(error.message);
+      err.statusCode = 500;
+      throw err;
+    }
+
+    return data;
+  }
+
+  /**
+   * Fetches all currently active class sessions for courses matching a
+   * student's department + level — the same basis
+   * classScheduleService.js's getMyScheduleAsStudent and
+   * enrollmentService.js's getEligibleCourses already use. There's no
+   * GET /class-sessions/active equivalent for students otherwise, since
+   * that endpoint is scoped to `lecturer_id` and a student isn't one.
+   *
+   * @param {string} studentUserId - auth user id of the logged-in student.
+   * @returns {Promise<object[]>} Active session rows for the student's
+   *   eligible courses, each joined with course code/name and venue
+   *   name/latitude/longitude.
+   * @throws {Error} 404 if the student record doesn't exist.
+   * @throws {Error} 500 on a database read failure.
+   */
+  static async getActiveSessionsForStudent(studentUserId) {
+    const { data: student, error: studentError } = await supabaseAdmin
+      .from("students")
+      .select("department_id, current_level")
+      .eq("user_id", studentUserId)
+      .single();
+
+    if (studentError || !student) {
+      const err = new Error("Student record not found");
+      err.statusCode = 404;
+      throw err;
+    }
+
+    const { data: courses, error: coursesError } = await supabaseAdmin
+      .from("courses")
+      .select("id")
+      .eq("department_id", student.department_id)
+      .eq("level", Number(student.current_level));
+
+    if (coursesError) {
+      const err = new Error(coursesError.message);
+      err.statusCode = 500;
+      throw err;
+    }
+
+    if (!courses.length) return [];
+
+    const courseIds = courses.map((c) => c.id);
+
+    const { data, error } = await supabaseAdmin
+      .from("class_sessions")
+      .select("*, courses(course_code, course_name), venues(name, latitude, longitude)")
+      .in("course_id", courseIds)
       .eq("status", "ACTIVE");
 
     if (error) {

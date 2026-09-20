@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth, requireRole } from "../middleware/authMiddleware.js";
-import { joinSession, getSessionAttendance } from "../controllers/sessionAttendanceController.js";
+import { joinSession, getSessionAttendance, getMyActiveAttendance } from "../controllers/sessionAttendanceController.js";
 import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 
 const sessionAttendanceRoutes = Router();
@@ -47,11 +47,25 @@ const joinSessionLimiter = rateLimit({
  *       400:
  *         description: Session is not currently active
  *       403:
- *         description: Not enrolled in this course
+ *         description: Not eligible for this course (department/level mismatch)
  *       404:
- *         description: Session not found
+ *         description: Session or student record not found
  */
 sessionAttendanceRoutes.post("/:id/join", requireAuth, requireRole("Student"), joinSessionLimiter, joinSession);
+
+/**
+ * @swagger
+ * /session-attendance/mine/active:
+ *   get:
+ *     summary: The logged-in student's own attendance rows for sessions still ACTIVE, with when each one's next verification check-in is due
+ *     tags: [Session Attendance]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: One row per joined, still-active session. next_check_due_at is null if no check has happened yet (the first is due immediately). check_interval_minutes is the server-enforced spacing between checks.
+ */
+sessionAttendanceRoutes.get("/mine/active", requireAuth, requireRole("Student"), getMyActiveAttendance);
 
 /**
  * @swagger

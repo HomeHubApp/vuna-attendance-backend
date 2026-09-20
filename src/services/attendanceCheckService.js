@@ -1,9 +1,14 @@
 import { supabaseAdmin } from "../config/supabase.js";
 import SessionAttendance from "./sessionAttendanceService.js";
 
-export const CHECK_INTERVAL_MINUTES = parseInt(process.env.CHECK_INTERVAL_MINUTES, 10) || 10;
-const CONSECUTIVE_FAIL_TO_FLAG = parseInt(process.env.CONSECUTIVE_FAIL_TO_FLAG, 10) || 2; 
-const CONSECUTIVE_FAIL_TO_ABSENT = parseInt(process.env.CONSECUTIVE_FAIL_TO_ABSENT, 10) || 3; 
+import {
+  CHECK_INTERVAL_MINUTES,
+  CONSECUTIVE_FAIL_TO_FLAG,
+  CONSECUTIVE_FAIL_TO_ABSENT,
+} from "../config/attendancePolicy.js";
+
+// Re-exported so existing importers (missedCheckInMonitor.js) keep working.
+export { CHECK_INTERVAL_MINUTES };
 
 function haversineDistanceMeters(lat1, lon1, lat2, lon2) {
   const R = 6371000;

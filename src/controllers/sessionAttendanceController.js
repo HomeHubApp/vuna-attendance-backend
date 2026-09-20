@@ -28,3 +28,13 @@ export const getSessionAttendance = async (req, res) => {
         return res.status(status).json({ success: false, error: error.message || "Failed to fetch session attendance" });
     }
 };
+
+export const getMyActiveAttendance = async (req, res) => {
+    try {
+        const { attendance, check_interval_minutes } = await SessionAttendance.getMyActiveAttendance(req.authUser.id);
+        return res.status(200).json({ data: attendance, check_interval_minutes });
+    } catch (error) {
+        const status = error.statusCode || 500;
+        return res.status(status).json({ success: false, error: error.message || "Failed to fetch your active attendance" });
+    }
+};

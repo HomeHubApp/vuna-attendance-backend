@@ -30,3 +30,24 @@ export const getActiveSessions = async (req, res) => {
         return res.status(status).json({ success: false, error: error.message || "Failed to fetch active sessions" });
     }
 };
+
+export const getMySessions = async (req, res) => {
+    try {
+        const { from, to, status, limit } = req.query;
+        const sessions = await ClassSession.getMySessions(req.authUser.id, { from, to, status, limit });
+        return res.status(200).json({ data: sessions });
+    } catch (error) {
+        const status = error.statusCode || 500;
+        return res.status(status).json({ success: false, error: error.message || "Failed to fetch sessions" });
+    }
+};
+
+export const getActiveSessionsAsStudent = async (req, res) => {
+    try {
+        const sessions = await ClassSession.getActiveSessionsForStudent(req.authUser.id);
+        return res.status(200).json({ data: sessions });
+    } catch (error) {
+        const status = error.statusCode || 500;
+        return res.status(status).json({ success: false, error: error.message || "Failed to fetch active sessions" });
+    }
+};
