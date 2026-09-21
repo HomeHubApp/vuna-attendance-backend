@@ -270,14 +270,6 @@ export async function login({ institution_identifier, password }) {
         throw err;
     }
 
-    if (user.is_default_password && user.email && !user.email_verified_at) {
-        try {
-            await sendEmailVerificationOtp(user.id);
-        } catch (otpError) {
-            console.error("Failed to auto-send first-login verification OTP:", otpError.message);
-        }
-    }
-
     return {
         access_token: session.session.access_token,
         refresh_token: session.session.refresh_token,
@@ -343,6 +335,15 @@ export async function addEmail(authUserId, email) {
         err.statusCode = 500;
         throw err;
     }
+
+    // Any reset code still outstanding was emailed to the OLD address, so it must not be usable now:
+    // a successful reset marks the email on file as verified, and that has to mean this new address.
+    await supabaseAdmin
+        .from("otp_codes")
+        .update({ used_at: new Date().toISOString() })
+        .eq("user_id", authUserId)
+        .eq("purpose", "PASSWORD_RESET")
+        .is("used_at", null);
 
     return { message: "Email saved. Please verify it to complete setup." };
 }
@@ -647,7 +648,7 @@ export async function forgotPassword({ institution_identifier }) {
 
     let query = supabaseAdmin
         .from("users")
-        .select("id, email, email_verified_at");
+        .select("id, email, email_verified_at, is_default_password");
 
     query = isEmail
         ? query.eq("email", identifier.toLowerCase())
@@ -655,7 +656,12 @@ export async function forgotPassword({ institution_identifier }) {
 
     const { data: user, error: lookupError } = await query.single();
 
-    if (lookupError || !user || !user.email || !user.email_verified_at) {
+    // A reset code goes only to an email on file that is either verified, or still unverified because the
+    // account is brand new (admin-provisioned email + still on the default password). The forced
+    // first-login reset depends on that second case; entering the code is what proves the inbox is theirs.
+    const canReceiveResetCode = user?.email && (user.email_verified_at || user.is_default_password);
+
+    if (lookupError || !user || !canReceiveResetCode) {
         return genericResponse;
     }
 
@@ -806,7 +812,7 @@ export async function resetPassword({ institution_identifier, otp, newPassword }
 
     const isEmail = identifier.includes("@");
 
-    let query = supabaseAdmin.from("users").select("id");
+    let query = supabaseAdmin.from("users").select("id, email_verified_at");
 
     query = isEmail
         ? query.eq("email", identifier.toLowerCase())
@@ -838,11 +844,14 @@ export async function resetPassword({ institution_identifier, otp, newPassword }
         .update({ used_at: new Date().toISOString() })
         .eq("id", otpRecord.id);
 
+    // The reset code was delivered to the email on file and entered correctly, which proves the user
+    // controls that inbox — so an email that was still unverified (a brand-new account) is verified now.
     const { error: updateError } = await supabaseAdmin
         .from("users")
         .update({
             is_default_password: false,
             last_login_at: new Date().toISOString(),
+            ...(user.email_verified_at ? {} : { email_verified_at: new Date().toISOString() }),
         })
         .eq("id", user.id);
 
