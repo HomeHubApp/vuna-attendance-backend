@@ -2,31 +2,30 @@ import "dotenv/config";
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import authRoutes from "./src/routes/authRoutes.js";
+import authRoutes from "./src/auth/authRoutes.js";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./src/config/swagger.js";
 
-import courseroutes from "./src/routes/coursesroutes.js";
-import { requireAuth } from "./src/middleware/authMiddleware.js";
-import departmentroutes from "./src/routes/departmentRoutes.js"
-import Facultyroutes from "./src/routes/facultyroutes.js"
+import courseroutes from "./src/courses/coursesroutes.js";
+import { requireAuth } from "./src/auth/authMiddleware.js";
+import departmentroutes from "./src/academic-structure/departmentRoutes.js"
+import Facultyroutes from "./src/academic-structure/facultyroutes.js"
 
-import { startAutoEndSessionsJob } from "./src/jobs/autoEndSessions.js";
-import { startMissedCheckInMonitorJob } from "./src/jobs/missedCheckInMonitor.js";
+import { startAutoEndSessionsJob } from "./src/live-sessions/jobs/autoEndSessions.js";
+import { startMissedCheckInMonitorJob } from "./src/live-sessions/jobs/missedCheckInMonitor.js";
 
 
 
-import adminRoutes from "./src/routes/adminRoutes.js";
-import classScheduleRoutes from "./src/routes/classScheduleRoutes.js";
-import notificationRoutes from "./src/routes/notificationRoutes.js";
-import systemSettingsRoutes from "./src/routes/systemSettingsRoutes.js";
-import academicSessionRoutes from "./src/routes/academicSessionRoutes.js";
-import venueRoutes from "./src/routes/venueRoutes.js";
-import classSessionRoutes from "./src/routes/classSessionRoutes.js";
-import enrollmentRoutes from "./src/routes/enrollmentRoutes.js";
-import sessionAttendanceRoutes from "./src/routes/sessionAttendanceRoutes.js";
-import attendanceCheckRoutes from "./src/routes/attendanceCheckRoutes.js";
-import studentCourseRoutes from "./src/routes/studentCourseRoutes.js";
+import adminRoutes from "./src/admin/adminRoutes.js";
+import classScheduleRoutes from "./src/class-schedule/classScheduleRoutes.js";
+import notificationRoutes from "./src/notifications/notificationRoutes.js";
+import systemSettingsRoutes from "./src/system-settings/systemSettingsRoutes.js";
+import academicSessionRoutes from "./src/academic-structure/academicSessionRoutes.js";
+import venueRoutes from "./src/venues/venueRoutes.js";
+import classSessionRoutes from "./src/live-sessions/classSessionRoutes.js";
+import sessionAttendanceRoutes from "./src/live-sessions/sessionAttendanceRoutes.js";
+import attendanceCheckRoutes from "./src/live-sessions/attendanceCheckRoutes.js";
+import studentCourseRoutes from "./src/student-courses/studentCourseRoutes.js";
 
 const PORT = process.env.PORT || 8000;
 const app = express();
@@ -59,7 +58,6 @@ app.use("/api/settings", systemSettingsRoutes)
 app.use("/api/academic-sessions", academicSessionRoutes)
 app.use("/api/venues", venueRoutes)
 app.use("/api/class-sessions", classSessionRoutes)
-app.use("/api/enrollments", enrollmentRoutes)
 app.use("/api/session-attendance", sessionAttendanceRoutes)
 app.use("/api/attendance-checks", attendanceCheckRoutes)
 app.use("/api/students", studentCourseRoutes)
