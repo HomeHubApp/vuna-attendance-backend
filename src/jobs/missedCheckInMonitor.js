@@ -1,6 +1,16 @@
+/**
+ * @file Background job: every 5 minutes, treats a joined student's silence
+ * (no check-in received when one was due) as a failed check, via
+ * `shared/attendance-checks/attendanceCheckService.js`'s `applyCheckOutcome`.
+ *
+ * @remarks
+ * Lives in `src/jobs/`, alongside `autoEndSessions.js`, rather than under
+ * any role folder: it's a system-wide cron job, not an HTTP endpoint a role
+ * calls. Started once from `index.js`.
+ */
 import cron from "node-cron";
 import { supabaseAdmin } from "../config/supabase.js";
-import AttendanceCheck, { CHECK_INTERVAL_MINUTES } from "../services/attendanceCheckService.js";
+import AttendanceCheck, { CHECK_INTERVAL_MINUTES } from "../shared/attendance-checks/attendanceCheckService.js";
 
 const CRON_SCHEDULE = "*/5 * * * *";
 const TICK_MS = 5 * 60 * 1000;

@@ -1,3 +1,7 @@
+/**
+ * @file Builds the OpenAPI spec `/api-docs` serves, by scanning every route
+ * file's `@swagger` JSDoc comments.
+ */
 import swaggerJsdoc from "swagger-jsdoc";
 
 const options = {
@@ -50,7 +54,11 @@ const options = {
             },
         },
     },
-    apis: ["./src/routes/*.js"],
+    // Every route file — under src/auth, admin, lecturer, student and shared — is named
+    // <feature>Routes.js and carries the @swagger comments for its endpoints. (This
+    // used to point at ./src/routes/*.js, which stopped matching anything when the
+    // code was regrouped, leaving /api-docs empty.)
+    apis: ["./src/**/*Routes.js"],
 };
 
 export const swaggerSpec = swaggerJsdoc(options);

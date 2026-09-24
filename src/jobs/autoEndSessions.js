@@ -1,3 +1,13 @@
+/**
+ * @file Background job: every 5 minutes, closes any `class_sessions` row
+ * still `ACTIVE` past its scheduled end time — a lecturer who forgets to
+ * end a class doesn't leave it open forever.
+ *
+ * @remarks
+ * Lives in `src/jobs/`, alongside `missedCheckInMonitor.js`, rather than
+ * under any role folder: it's a system-wide cron job, not an HTTP endpoint
+ * a role calls. Started once from `index.js`.
+ */
 import cron from "node-cron";
 import { supabaseAdmin } from "../config/supabase.js";
 

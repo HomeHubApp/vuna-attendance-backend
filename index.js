@@ -1,32 +1,24 @@
+/**
+ * @file Server entry point: Express setup (JSON, CORS, cookies), the API
+ * routes, Swagger docs, the health check, and the background jobs.
+ *
+ * @remarks
+ * Which router serves which URL is decided in `src/routes.js`; the code is
+ * grouped by role under `src/auth`, `src/admin`, `src/lecturer`,
+ * `src/student` and `src/shared`. Starting the server also starts two cron
+ * jobs (auto-end overdue sessions, flag students who miss location checks),
+ * so importing this file has side effects — tests and tooling that only need
+ * the routes should import `mountRoutes` from `src/routes.js` instead.
+ */
 import "dotenv/config";
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import authRoutes from "./src/routes/authRoutes.js";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./src/config/swagger.js";
-
-import courseroutes from "./src/routes/coursesroutes.js";
-import { requireAuth } from "./src/middleware/authMiddleware.js";
-import departmentroutes from "./src/routes/departmentRoutes.js"
-import Facultyroutes from "./src/routes/facultyroutes.js"
-
+import { mountRoutes } from "./src/routes.js";
 import { startAutoEndSessionsJob } from "./src/jobs/autoEndSessions.js";
 import { startMissedCheckInMonitorJob } from "./src/jobs/missedCheckInMonitor.js";
-
-
-
-import adminRoutes from "./src/routes/adminRoutes.js";
-import classScheduleRoutes from "./src/routes/classScheduleRoutes.js";
-import notificationRoutes from "./src/routes/notificationRoutes.js";
-import systemSettingsRoutes from "./src/routes/systemSettingsRoutes.js";
-import academicSessionRoutes from "./src/routes/academicSessionRoutes.js";
-import venueRoutes from "./src/routes/venueRoutes.js";
-import classSessionRoutes from "./src/routes/classSessionRoutes.js";
-import enrollmentRoutes from "./src/routes/enrollmentRoutes.js";
-import sessionAttendanceRoutes from "./src/routes/sessionAttendanceRoutes.js";
-import attendanceCheckRoutes from "./src/routes/attendanceCheckRoutes.js";
-import studentCourseRoutes from "./src/routes/studentCourseRoutes.js";
 
 const PORT = process.env.PORT || 8000;
 const app = express();
@@ -47,22 +39,7 @@ app.use(cors({
 
 app.use(cookieParser());
 
-app.use("/api/auth", authRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/courses",requireAuth, courseroutes)
-app.use("/api/department",requireAuth, departmentroutes)
-app.use("/api/faculty", requireAuth, Facultyroutes)
-
-app.use("/api/class-schedule", classScheduleRoutes)
-app.use("/api/notifications", notificationRoutes)
-app.use("/api/settings", systemSettingsRoutes)
-app.use("/api/academic-sessions", academicSessionRoutes)
-app.use("/api/venues", venueRoutes)
-app.use("/api/class-sessions", classSessionRoutes)
-app.use("/api/enrollments", enrollmentRoutes)
-app.use("/api/session-attendance", sessionAttendanceRoutes)
-app.use("/api/attendance-checks", attendanceCheckRoutes)
-app.use("/api/students", studentCourseRoutes)
+mountRoutes(app);
 
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
