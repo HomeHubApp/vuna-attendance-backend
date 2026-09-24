@@ -9,7 +9,7 @@
  */
 import { Router } from "express";
 import { requireAuth, requireRole } from "../../auth/authMiddleware.js";
-import { getAttendanceMatrix, getOverview } from "./courseDetailsController.js";
+import { getAttendanceMatrix, getOverview, notifyAtRisk } from "./courseDetailsController.js";
 
 const courseDetailsRoutes = Router();
 
@@ -91,5 +91,49 @@ courseDetailsRoutes.get("/overview", requireAuth, requireRole("Lecturer"), getOv
  *         description: courseId isn't one of the lecturer's courses
  */
 courseDetailsRoutes.get("/attendance-matrix", requireAuth, requireRole("Lecturer"), getAttendanceMatrix);
+
+/**
+ * @swagger
+ * /course-details/notify-at-risk:
+ *   post:
+ *     summary: Warn a course's at-risk students by email and in-app notification
+ *     description: >
+ *       Alerts every enrolled student of the course who can no longer reach
+ *       the exam attendance minimum even by attending every class still to
+ *       come — the students the attendance matrix marks AT_RISK. The
+ *       recipients are decided by the server; the request only names the
+ *       course. Each student gets an email with their own numbers (skipped for
+ *       a student with no email address) and everyone gets an in-app
+ *       notification. Returns how many were reached and which emails failed.
+ *       A failed email doesn't undo the rest and isn't retried. After an
+ *       alert, the same course can't be alerted again until the cooldown
+ *       passes (429, default 60 minutes).
+ *     tags: [Course Details]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [courseId]
+ *             properties:
+ *               courseId: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: >
+ *           `{ atRiskCount, inAppNotifiedCount, emailedCount, failedEmails: [{ studentId, fullName, error }],
+ *           noEmailAddress: [{ studentId, fullName }] }`
+ *       400:
+ *         description: courseId is missing, or no students are at risk
+ *       403:
+ *         description: Not a Lecturer
+ *       404:
+ *         description: courseId isn't one of the lecturer's courses
+ *       429:
+ *         description: The course's at-risk students were alerted too recently
+ */
+courseDetailsRoutes.post("/notify-at-risk", requireAuth, requireRole("Lecturer"), notifyAtRisk);
 
 export default courseDetailsRoutes;

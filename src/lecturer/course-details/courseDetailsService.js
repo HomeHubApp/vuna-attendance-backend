@@ -12,6 +12,9 @@
  * student-by-session table under them: separate because it is by far the
  * heaviest read (every attendance row of the term, plus the problem checks),
  * so it has its own endpoint and loading state and never holds the header up.
+ * The "Notify at-risk students" action is the one write; it lives in
+ * `atRiskNotificationService.js` and reads its recipients from
+ * `getAttendanceMatrix`, so the students warned are the ones the table marks.
  *
  * It reads everything it needs itself rather than borrowing another
  * feature's endpoint or service (the header used to be stitched together in

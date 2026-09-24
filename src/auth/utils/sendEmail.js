@@ -1,46 +1,16 @@
 /**
  * @file Every outbound email auth sends — OTP codes, the welcome email for
  * a newly created account, and the notice when an Admin regenerates a
- * password — via the Resend API.
+ * password.
+ *
+ * @remarks
+ * Only the wording lives here; delivery (the Resend client, its
+ * configuration and error handling) is `shared/email/sendEmail.js`, which
+ * other features use too.
  */
-import { Resend } from "resend";
+import { sendEmail } from "../../shared/email/sendEmail.js";
 
-const FROM_NAME = process.env.RESEND_FROM_NAME || "Veritas Attendance System";
-
-// This is for creating the Resend client lazily on first send, so a missing RESEND_API_KEY
-// fails at send time with a clear message instead of crashing the whole server on startup
-let resendClient = null;
-function getResend() {
-    if (!process.env.RESEND_API_KEY) {
-        throw new Error("Failed to send email: RESEND_API_KEY is not set");
-    }
-    if (!resendClient) resendClient = new Resend(process.env.RESEND_API_KEY);
-    return resendClient;
-}
-
-// This is for the one place every email actually gets sent from — the Resend SDK returns
-// { data, error } instead of throwing on API errors, so a failure is converted into a thrown
-// Error here to keep the same behaviour callers already relied on with Brevo
-async function sendEmail({ to, subject, html }) {
-    if (!process.env.RESEND_FROM_EMAIL) {
-        throw new Error("Failed to send email: RESEND_FROM_EMAIL is not set");
-    }
-
-    const { data, error } = await getResend().emails.send({
-        from: `${FROM_NAME} <${process.env.RESEND_FROM_EMAIL}>`,
-        to,
-        subject,
-        html,
-    });
-
-    if (error) {
-        throw new Error(`Failed to send email: ${error.message}`);
-    }
-
-    return data;
-}
-
-// This is for sending the OTP used for email verification and password reset
+/** Sends the OTP used for email verification and password reset. */
 export async function sendOtpEmail(to, otp, purpose) {
     const subject = purpose === "EMAIL_VERIFICATION"
         ? "Verify your email — Veritas Attendance"
@@ -59,7 +29,7 @@ export async function sendOtpEmail(to, otp, purpose) {
     console.log(`OTP email accepted by Resend: ${to} (${purpose})`);
 }
 
-// This is for sending a new user their login ID and temporary password after an admin creates their account
+/** Sends a new user their login ID and temporary password after an admin creates their account. */
 export async function sendWelcomeEmail(to, { full_name, institution_identifier, default_password }) {
     await sendEmail({
         to,
@@ -75,7 +45,7 @@ export async function sendWelcomeEmail(to, { full_name, institution_identifier, 
     });
 }
 
-// This is for telling a user their password was reset by an admin, with the new temporary password
+/** Tells a user their password was reset by an admin, with the new temporary password. */
 export async function sendPasswordRegeneratedEmail(to, { full_name, institution_identifier, new_password }) {
     await sendEmail({
         to,
