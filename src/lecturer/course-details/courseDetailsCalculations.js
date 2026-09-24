@@ -3,7 +3,8 @@
  * block (the course dropdown, the facts line, the exam-rule line and the
  * average attendance badge) and the three stat cards under it: which course
  * is selected, the dropdown's options, the course's weekly timetable pattern,
- * and the assembled header and stats objects.
+ * and the assembled header and stats objects. (The attendance table under
+ * them is `attendanceMatrixCalculations.js`.)
  *
  * @remarks
  * No database access and no clock reads — `courseDetailsService.js` gathers

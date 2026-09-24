@@ -11,10 +11,10 @@
  * student-facing attendance view — the maths itself has no owning role.
  *
  * It also owns the exam-eligibility rule (`minClassesForExam`,
- * `canStillQualify`): a student is "at risk" when they can NO LONGER
- * qualify — their attended classes plus every class still to come (expected
- * − held) can't reach the minimum. Being behind early in the semester is
- * not "at risk"; being unable to catch up is.
+ * `canStillQualify`, `classifyEligibility`): a student is "at risk" when
+ * they can NO LONGER qualify — their attended classes plus every class still
+ * to come (expected − held) can't reach the minimum. Being behind early in
+ * the semester is not "at risk"; being unable to catch up is.
  *
  * `computeStudentPresentCounts` is the shared building block behind every
  * per-student percentage in the app — `computeCourseAttendance` averages it
@@ -116,6 +116,23 @@ export function canStillQualify({
   const expected = Number(expectedClasses) > 0 ? Number(expectedClasses) : DEFAULT_EXPECTED_CLASSES;
   const remaining = Math.max(0, expected - heldSessions);
   return presentCount + remaining >= minClassesForExam(expected, minPercent);
+}
+
+/**
+ * Where one student stands on exam eligibility right now — the label behind
+ * the Course Details table's "Eligibility" column, and (through
+ * `canStillQualify`) the same test the "students at risk" count uses, so the
+ * table's "AT_RISK" rows and that stat card can never disagree.
+ *
+ * @param {object} args - Same as {@link canStillQualify}.
+ * @returns {"ELIGIBLE"|"IN_PROGRESS"|"AT_RISK"}
+ *   ELIGIBLE: has already attended the minimum number of classes.
+ *   IN_PROGRESS: hasn't yet, but still can by attending what's left.
+ *   AT_RISK: can no longer reach it, even by attending every class still to come.
+ */
+export function classifyEligibility({ presentCount, heldSessions, expectedClasses = DEFAULT_EXPECTED_CLASSES, minPercent }) {
+  if (presentCount >= minClassesForExam(expectedClasses, minPercent)) return "ELIGIBLE";
+  return canStillQualify({ presentCount, heldSessions, expectedClasses, minPercent }) ? "IN_PROGRESS" : "AT_RISK";
 }
 
 /**

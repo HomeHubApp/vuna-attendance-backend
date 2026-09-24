@@ -15,3 +15,14 @@ export const getOverview = async (req, res) => {
     return res.status(status).json({ success: false, error: error.message || "Failed to fetch course details overview" });
   }
 };
+
+export const getAttendanceMatrix = async (req, res) => {
+  try {
+    const { courseId } = req.query;
+    const matrix = await CourseDetails.getAttendanceMatrix(req.authUser.id, courseId);
+    return res.status(200).json({ message: "Course attendance matrix fetched successfully", data: matrix });
+  } catch (error) {
+    const status = error.statusCode || 500;
+    return res.status(status).json({ success: false, error: error.message || "Failed to fetch course attendance matrix" });
+  }
+};

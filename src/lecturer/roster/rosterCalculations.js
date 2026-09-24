@@ -1,8 +1,8 @@
 /**
  * @file Pure logic behind the Class Attendance Record ("roster") page for
- * one held session: classifying each enrolled student into a display
- * bucket, listing their verification issues, and rolling those buckets up
- * into the sidebar's breakdown and the flagged-review list.
+ * one held session: listing each enrolled student's verification issues, and
+ * rolling their display buckets up into the sidebar's breakdown and the
+ * flagged-review list.
  *
  * @remarks
  * No database access and no clock reads — `rosterService.js` gathers the
@@ -11,55 +11,18 @@
  * unit-testable on its own, the same split `shared/analytics/attendanceCalculations.js`
  * uses.
  *
- * `session_attendance.status` only has four real values (PRESENT, LATE,
- * FLAGGED, ABSENT — LEFT_EARLY is defined in the schema but never set by
- * any code path today). The roster's own vocabulary (Present, Incomplete,
- * Absent, Flagged) is a display bucket derived from that status plus the
- * session's checks, not a stored value — "Incomplete" in particular does
- * not exist in the database:
- *   - FLAGGED -> "Flagged" (already an escalated state — two failed/missed checks).
- *   - ABSENT, or no session_attendance row at all -> "Absent" (never
- *     verified as present, whether the missed-check monitor decided that
- *     or the student simply never joined).
- *   - PRESENT/LATE with an unresolved failed or unavailable check ->
- *     "Incomplete" — they made it in, but something about their
- *     verification hasn't been cleared yet.
- *   - PRESENT/LATE with nothing unresolved -> "Present".
- *   - Any other stored status (i.e. LEFT_EARLY, if it's ever set) ->
- *     "Flagged", a safe default so an unrecognised state is never
- *     silently treated as fine.
- * A lecturer's Override always writes one of the four REAL statuses (see
- * `shared/session-attendance/sessionAttendanceService.js`'s
- * `overrideAttendance`) — there is no way to override a row directly to
- * "Incomplete", because it isn't a status the row can hold.
+ * The bucket itself — Present, Incomplete, Absent or Flagged, and how each is
+ * derived from the stored status plus the session's checks — is decided by
+ * `classifyAttendanceBucket` in `shared/analytics/attendanceBuckets.js`,
+ * because the Course Details attendance matrix must show the same bucket for
+ * the same student and session. "Incomplete" is not a database status, and a lecturer's Override
+ * can only write the four real ones (`overrideAttendance` in
+ * `shared/session-attendance/sessionAttendanceService.js`).
  */
+import { classifyAttendanceBucket } from "../../shared/analytics/attendanceBuckets.js";
 
-/** The roster's own display statuses — see the file header for how each is derived. */
+/** The roster's own display statuses — `classifyAttendanceBucket` (shared/analytics/attendanceBuckets.js) says how each is derived. */
 export const ROSTER_STATUSES = ["Present", "Incomplete", "Absent", "Flagged"];
-
-/**
- * Buckets one enrolled student into a roster display status.
- *
- * @param {object|null} attendanceRow - Their `session_attendance` row for
- *   this session, or null when they never joined it.
- * @param {object[]} checksForRow - That row's `attendance_checks` rows (empty if `attendanceRow` is null).
- * @returns {"Present"|"Incomplete"|"Absent"|"Flagged"}
- */
-export function classifyAttendanceBucket(attendanceRow, checksForRow) {
-  if (!attendanceRow) return "Absent";
-
-  if (attendanceRow.status === "FLAGGED") return "Flagged";
-  if (attendanceRow.status === "ABSENT") return "Absent";
-
-  if (attendanceRow.status === "PRESENT" || attendanceRow.status === "LATE") {
-    const hasUnresolvedIssue = checksForRow.some(
-      (check) => !check.resolved && (check.overall_match === false || check.gps_outcome === "UNAVAILABLE" || check.ip_outcome === "UNAVAILABLE")
-    );
-    return hasUnresolvedIssue ? "Incomplete" : "Present";
-  }
-
-  return "Flagged";
-}
 
 /**
  * The specific verification problems behind a student's row this session,
