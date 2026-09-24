@@ -1,3 +1,9 @@
+/**
+ * @file The two guards every protected route is built on: `requireAuth`
+ * (valid `access_token` cookie required) and `requireRole(...roles)` (the
+ * authenticated user must hold one of the given roles). Every role folder
+ * (`admin/`, `lecturer/`, `student/`) and `shared/` imports these from here.
+ */
 import { supabase } from "../config/supabase.js";
 import { supabaseAdmin } from "../config/supabase.js";
 

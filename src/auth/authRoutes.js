@@ -1,3 +1,14 @@
+/**
+ * @file Auth routes: login, refresh, logout, the forgot-password OTP flow,
+ * email verification, `/me`, and the two Admin-only account endpoints
+ * (`create-user`, `regenerate-password`). Mounted at `/api/auth` by
+ * `auth/index.js`.
+ *
+ * @remarks
+ * The two Admin endpoints stay here rather than under `admin/` because they
+ * are thin wrappers over auth's own internals (password generation, welcome
+ * email) — see `auth/index.js` for the reasoning.
+ */
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import * as authController from "./authController.js";

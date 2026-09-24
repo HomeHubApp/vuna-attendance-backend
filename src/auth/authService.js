@@ -1,9 +1,19 @@
+/**
+ * @file Authentication and account lifecycle: login/refresh/logout, the
+ * forgot-password OTP flow, email verification, and the Admin actions of
+ * creating a user and regenerating a default password.
+ *
+ * @remarks
+ * `utils/` here (password generation/validation, OTP, email sending, cookie
+ * options) is auth-only — nothing else in the codebase imports it, which is
+ * why it lives under `auth/` rather than in `shared/`.
+ */
 import { supabase, supabaseAdmin } from "../config/supabase.js";
-import { generateDefaultPassword } from "../utils/generatePassword.js";
-import { validatePassword } from "../utils/validatePassword.js";
-import { generateOtp, hashOtp, otpExpiry } from "../utils/otp.js";
+import { generateDefaultPassword } from "./utils/generatePassword.js";
+import { validatePassword } from "./utils/validatePassword.js";
+import { generateOtp, hashOtp, otpExpiry } from "./utils/otp.js";
 import { ROLES, STAFF_ROLES, UNIVERSITY_DOMAIN } from "../constants/roles.js";
-import { sendOtpEmail, sendWelcomeEmail, sendPasswordRegeneratedEmail } from "../utils/sendEmail.js";
+import { sendOtpEmail, sendWelcomeEmail, sendPasswordRegeneratedEmail } from "./utils/sendEmail.js";
 
 
 export async function refreshSession(refreshToken) {

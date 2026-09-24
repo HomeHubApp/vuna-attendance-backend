@@ -1,10 +1,15 @@
+/**
+ * @file HTTP layer for `authService.js` — parses each request, calls the
+ * service, sets the access/refresh cookies where relevant, and maps thrown
+ * errors to a status code and JSON body.
+ */
 import * as authService from "./authService.js";
 import {
     accessTokenCookieOptions,
     refreshTokenCookieOptions,
     clearAccessTokenCookieOptions,
     clearRefreshTokenCookieOptions,
-} from "../utils/cookieOptions.js";
+} from "./utils/cookieOptions.js";
 
 export async function adminCreateUser(req, res) {
     try {

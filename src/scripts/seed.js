@@ -1,6 +1,11 @@
+/**
+ * @file One-off script that seeds a Software Engineering department and a
+ * handful of test users (one per role) for local development. Run directly
+ * with `node src/scripts/seed.js`; not imported by the server.
+ */
 import "dotenv/config";
 import { supabaseAdmin } from "../config/supabase.js";
-import * as authService from "../services/authService.js";
+import * as authService from "../auth/authService.js";
 
 async function seed() {
     console.log("Starting seed...\n");
