@@ -16,7 +16,15 @@
  * copy they can find later, reaches students with no address on file, and is
  * the record this action keeps of having run — the cooldown below reads it.
  * Email is per-student (their own numbers); the in-app copy is one shared
- * message.
+ * message. The lecturer also gets an email copy afterwards — who was warned
+ * and how delivery went for each — the one place a failed or address-less
+ * student shows up in their inbox.
+ *
+ * TEMPORARY testing switch (`AT_RISK_NOTIFY_ALLOW_EMPTY_FOR_TESTING` in
+ * `config/attendancePolicy.js`, currently on): with no student at risk the
+ * action still runs, sends only the lecturer's test copy and creates no
+ * in-app notification (so it also starts no cooldown). Turn it off to refuse
+ * that case with a 400 again.
  *
  * Honest limits. Nothing is queued or retried: if an email fails, it is
  * reported back and the lecturer can see which students to follow up with —
@@ -31,7 +39,7 @@
  * exercised without emailing anyone or writing notifications.
  */
 import { supabaseAdmin } from "../../config/supabase.js";
-import { AT_RISK_NOTIFY_COOLDOWN_MINUTES } from "../../config/attendancePolicy.js";
+import { AT_RISK_NOTIFY_ALLOW_EMPTY_FOR_TESTING, AT_RISK_NOTIFY_COOLDOWN_MINUTES } from "../../config/attendancePolicy.js";
 import { sendEmailBatch } from "../../shared/email/sendEmail.js";
 import NotificationService from "../../shared/notifications/notificationService.js";
 import { failWith, fetchInChunks } from "../../shared/analytics/supabasePaging.js";
@@ -39,6 +47,7 @@ import CourseDetails from "./courseDetailsService.js";
 import {
   AT_RISK_NOTIFICATION_TYPE,
   buildAtRiskInAppNotice,
+  buildLecturerCopyEmail,
   cooldownMinutesRemaining,
   planAtRiskNotification,
 } from "./atRiskNotificationCalculations.js";
@@ -64,14 +73,16 @@ class AtRiskNotification {
    *   inAppNotifiedCount: number,
    *   emailedCount: number,
    *   failedEmails: Array<{ studentId: string, fullName: string, error: string }>,
-   *   noEmailAddress: Array<{ studentId: string, fullName: string }>
+   *   noEmailAddress: Array<{ studentId: string, fullName: string }>,
+   *   lecturerCopy: { status: "sent"|"failed"|"no_address", error?: string }
    * }>}
    *   `inAppNotifiedCount` is 0 if creating the in-app copy failed (logged,
    *   not fatal — the emails still go). Anyone in `failedEmails` or
-   *   `noEmailAddress` was not emailed.
-   * @throws {Error} 400 when `courseId` is missing or nobody is at risk; 404
-   *   when the course isn't the lecturer's; 429 while the cooldown after the
-   *   last alert hasn't passed.
+   *   `noEmailAddress` was not emailed. `lecturerCopy` is how the lecturer's
+   *   own copy went: "no_address" when their account has no email.
+   * @throws {Error} 400 when `courseId` is missing, or nobody is at risk
+   *   (unless the testing switch is on); 404 when the course isn't the
+   *   lecturer's; 429 while the cooldown after the last alert hasn't passed.
    */
   static async notify(
     lecturerId,
@@ -82,41 +93,44 @@ class AtRiskNotification {
     const matrix = await CourseDetails.getAttendanceMatrix(lecturerId, courseId);
 
     const atRiskIds = matrix.students.filter((student) => student.eligibility === "AT_RISK").map((student) => student.id);
-    if (atRiskIds.length === 0) fail("No students are at risk in this course", 400);
+    if (atRiskIds.length === 0 && !AT_RISK_NOTIFY_ALLOW_EMPTY_FOR_TESTING) fail("No students are at risk in this course", 400);
 
     await AtRiskNotification.#assertCooldownPassed(courseId, now);
 
-    const [course, lecturerName, usersById] = await Promise.all([
+    const [course, lecturer, usersById] = await Promise.all([
       AtRiskNotification.#fetchCourse(courseId),
-      AtRiskNotification.#fetchUserName(lecturerId),
+      AtRiskNotification.#fetchLecturer(lecturerId),
       AtRiskNotification.#fetchUsers(atRiskIds),
     ]);
 
-    const plan = planAtRiskNotification({ matrix, usersById, course, lecturerName });
+    const plan = planAtRiskNotification({ matrix, usersById, course, lecturerName: lecturer.fullName });
 
     // In-app first: it is also the cooldown's record, so it should exist even if emailing goes wrong.
     let inAppNotifiedCount = 0;
-    try {
-      const { title, message } = buildAtRiskInAppNotice({ ...course, minPercentageForExam: matrix.rules.minPercentageForExam });
-      await notify({
-        type: AT_RISK_NOTIFICATION_TYPE,
-        title,
-        message,
-        relatedEntityType: "course",
-        relatedEntityId: courseId,
-        payload: {
-          course_id: courseId,
-          course_code: course.courseCode,
-          course_name: course.courseTitle,
-          min_attendance_percentage: matrix.rules.minPercentageForExam,
-          min_classes_for_exam: matrix.rules.minClassesForExam,
-        },
-        createdBy: lecturerId,
-        recipientIds: plan.atRisk.map((student) => student.id),
-      });
-      inAppNotifiedCount = plan.atRisk.length;
-    } catch (notifyError) {
-      console.error("Failed to create the at-risk in-app notification:", notifyError.message);
+    // (Creating a notification needs at least one recipient, so the empty test case skips it.)
+    if (plan.atRisk.length > 0) {
+      try {
+        const { title, message } = buildAtRiskInAppNotice({ ...course, minPercentageForExam: matrix.rules.minPercentageForExam });
+        await notify({
+          type: AT_RISK_NOTIFICATION_TYPE,
+          title,
+          message,
+          relatedEntityType: "course",
+          relatedEntityId: courseId,
+          payload: {
+            course_id: courseId,
+            course_code: course.courseCode,
+            course_name: course.courseTitle,
+            min_attendance_percentage: matrix.rules.minPercentageForExam,
+            min_classes_for_exam: matrix.rules.minClassesForExam,
+          },
+          createdBy: lecturerId,
+          recipientIds: plan.atRisk.map((student) => student.id),
+        });
+        inAppNotifiedCount = plan.atRisk.length;
+      } catch (notifyError) {
+        console.error("Failed to create the at-risk in-app notification:", notifyError.message);
+      }
     }
 
     const outcomes = plan.emails.length ? await sendEmails(plan.emails.map((email) => email.message)) : [];
@@ -128,13 +142,41 @@ class AtRiskNotification {
       }
     });
 
+    const lecturerCopy = await AtRiskNotification.#sendLecturerCopy({ lecturer, course, plan, failedEmails, sendEmails });
+
     return {
       atRiskCount: plan.atRisk.length,
       inAppNotifiedCount,
       emailedCount: plan.emails.length - failedEmails.length,
       failedEmails,
       noEmailAddress: plan.noAddress,
+      lecturerCopy,
     };
+  }
+
+  /**
+   * Emails the lecturer their copy: who was warned and how each delivery
+   * went. Sent last so it can report the outcomes; a failure here is reported,
+   * never thrown — the students have already been warned.
+   */
+  static async #sendLecturerCopy({ lecturer, course, plan, failedEmails, sendEmails }) {
+    const to = lecturer.email?.trim();
+    if (!to) return { status: "no_address" };
+
+    const failedById = new Map(failedEmails.map((failure) => [failure.studentId, failure.error]));
+    const noAddressIds = new Set(plan.noAddress.map((student) => student.studentId));
+    const rows = plan.atRisk.map((student) => ({
+      ...student,
+      delivery: noAddressIds.has(student.id)
+        ? { status: "no_address" }
+        : failedById.has(student.id)
+          ? { status: "failed", error: failedById.get(student.id) }
+          : { status: "emailed" },
+    }));
+
+    const message = { to, ...buildLecturerCopyEmail({ lecturerName: lecturer.fullName, ...course, heldSessions: plan.heldSessions, rows }) };
+    const [outcome] = await sendEmails([message]);
+    return outcome?.ok ? { status: "sent" } : { status: "failed", error: outcome?.error || "Failed to send email" };
   }
 
   /** 429 while the course was alerted less than the cooldown ago. */
@@ -164,11 +206,11 @@ class AtRiskNotification {
     return { courseCode: data.course_code, courseTitle: data.course_name };
   }
 
-  /** A user's full name, or null. */
-  static async #fetchUserName(userId) {
-    const { data, error } = await supabaseAdmin.from("users").select("full_name").eq("id", userId).maybeSingle();
+  /** The lecturer's name and email address (either may be null). */
+  static async #fetchLecturer(userId) {
+    const { data, error } = await supabaseAdmin.from("users").select("full_name, email").eq("id", userId).maybeSingle();
     if (error) failWith(error, "Failed to fetch lecturer");
-    return data?.full_name ?? null;
+    return { fullName: data?.full_name ?? null, email: data?.email ?? null };
   }
 
   /** The students' user rows (just what the email needs), by id. */

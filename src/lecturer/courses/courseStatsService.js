@@ -1,7 +1,8 @@
 /**
  * @file Gathers the rows behind `GET /api/courses/mine/stats` (a lecturer's
  * per-course enrolment, attendance and exam-eligibility numbers) and hands
- * them to the pure maths in `shared/analytics/attendanceCalculations.js`.
+ * them to the pure maths in `shared/analytics/attendanceCalculations.js`. The
+ * rows themselves come from `shared/analytics/termAttendanceData.js`.
  *
  * @remarks
  * Lecturer-only (guarded by `requireRole("Lecturer")` in
@@ -11,14 +12,12 @@
  */
 import { supabaseAdmin } from "../../config/supabase.js";
 import {
-  DEFAULT_EXPECTED_CLASSES,
   computeAttendanceTrend,
   computeCourseAttendance,
   minClassesForExam,
 } from "../../shared/analytics/attendanceCalculations.js";
-// PostgREST caps a response at 1000 rows by default, and long `in (...)`
-// lists overflow the request URL, so bulk reads go through these helpers.
-import { failWith, fetchAllPages, fetchInChunks } from "../../shared/analytics/supabasePaging.js";
+import { failWith } from "../../shared/analytics/supabasePaging.js";
+import { fetchTermAttendanceData } from "../../shared/analytics/termAttendanceData.js";
 
 const groupBy = (rows, key) => {
   const groups = new Map();
@@ -66,59 +65,10 @@ class CourseStats {
     if (!courses.length) return [];
     const courseIds = courses.map((course) => course.id);
 
-    const { data: settings, error: settingsError } = await supabaseAdmin
-      .from("system_settings")
-      .select("*")
-      .eq("id", 1)
-      .single();
-    if (settingsError) failWith(settingsError, "Failed to fetch system settings");
-    // select("*") + fallback so this keeps working until the
-    // expected_classes_per_semester migration has been run.
-    const expectedClasses = settings.expected_classes_per_semester ?? DEFAULT_EXPECTED_CLASSES;
-    const minPercent = Number(settings.min_attendance_percentage);
-
-    // The current academic session's date window. If the session has no
-    // row (or open-ended dates) that side simply isn't filtered.
-    const { data: academicSession } = await supabaseAdmin
-      .from("academic_sessions")
-      .select("start_date, end_date")
-      .eq("name", settings.academic_year)
-      .maybeSingle();
-
-    const sessions = await fetchAllPages(() => {
-      let query = supabaseAdmin
-        .from("class_sessions")
-        .select("id, course_id, status, session_date, scheduled_start_at, scheduled_end_at, actual_start_at, actual_end_at")
-        .in("course_id", courseIds)
-        .eq("status", "ENDED")
-        .order("id");
-      if (academicSession?.start_date) query = query.gte("session_date", academicSession.start_date);
-      if (academicSession?.end_date) query = query.lte("session_date", academicSession.end_date);
-      return query;
-    }, "Failed to fetch class sessions");
-
-    const enrollments = await fetchAllPages(
-      () =>
-        supabaseAdmin
-          .from("enrollments")
-          .select("course_id, student_id")
-          .in("course_id", courseIds)
-          .eq("status", "ENROLLED")
-          .order("student_id"),
-      "Failed to fetch enrollments"
-    );
-
-    const attendanceRows = await fetchInChunks(
-      sessions.map((session) => session.id),
-      (idChunk) =>
-        supabaseAdmin
-          .from("session_attendance")
-          .select("class_session_id, student_id, status")
-          .in("class_session_id", idChunk)
-          .order("class_session_id")
-          .order("student_id"),
-      "Failed to fetch session attendance"
-    );
+    // The settings, current academic session and every session / enrollment /
+    // attendance row of these courses, read by the shared loader the Dashboard
+    // uses too — so both screens count the same rows the same way.
+    const { expectedClasses, minPercent, sessions, enrollments, attendanceRows } = await fetchTermAttendanceData(courseIds);
 
     const sessionsByCourse = groupBy(sessions, "course_id");
     const enrollmentsByCourse = groupBy(enrollments, "course_id");

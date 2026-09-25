@@ -18,7 +18,10 @@
  *
  * The email states facts the student can check — classes attended, classes
  * held, the minimum needed — and leaves the next step to the lecturer. It
- * names nobody but the recipient.
+ * names nobody but the recipient. The lecturer gets a different email, a copy
+ * (`buildLecturerCopyEmail`): who was warned and how delivery went for each,
+ * which is the only place a failed or address-less student is visible in the
+ * inbox.
  */
 import { escapeHtml } from "../../shared/email/sendEmail.js";
 
@@ -80,6 +83,63 @@ export function buildAtRiskEmail({ studentName, courseCode, courseTitle, lecture
   };
 }
 
+/** How each student's email turned out, for the lecturer's copy. */
+const DELIVERY_TEXT = {
+  emailed: () => "emailed",
+  failed: (row) => `email failed${row.delivery.error ? ` (${escapeHtml(row.delivery.error)})` : ""}`,
+  no_address: () => "no email address on file — in-app notification only",
+};
+
+/**
+ * The copy of the alert the lecturer receives: who was warned, what each was
+ * told, and how delivery went for each student. Sent after the students'
+ * emails so it can report their outcomes.
+ *
+ * With no at-risk student this is a test message saying nobody was warned —
+ * only used while `AT_RISK_NOTIFY_ALLOW_EMPTY_FOR_TESTING` is on
+ * (`config/attendancePolicy.js`).
+ *
+ * @param {object} args
+ * @param {string|null} args.lecturerName
+ * @param {string} args.courseCode
+ * @param {string} args.courseTitle
+ * @param {number} args.heldSessions - Classes held so far this term.
+ * @param {Array<{ fullName: string, matricNo: string|null, attendedCount: number, attendancePercent: number, delivery: { status: "emailed"|"failed"|"no_address", error?: string } }>} args.rows
+ * @returns {{ subject: string, html: string }} Every interpolated value is HTML-escaped.
+ */
+export function buildLecturerCopyEmail({ lecturerName, courseCode, courseTitle, heldSessions, rows }) {
+  const course = `<strong>${escapeHtml(courseCode)} – ${escapeHtml(courseTitle)}</strong>`;
+  const greeting = `<p>Hi ${escapeHtml(lecturerName ?? "there")},</p>`;
+
+  if (rows.length === 0) {
+    return {
+      subject: `Test: attendance warning — ${courseCode} — Veritas Attendance`,
+      html: `
+      ${greeting}
+      <p><strong>This was a test.</strong> No students are currently at risk in ${course}, so nobody was warned. You are getting this only so you can check that email delivery works.</p>
+      <p>When students are at risk, this is the copy you will get after they are warned: who was told, their figures, and whether each email was delivered.</p>
+    `,
+    };
+  }
+
+  const items = rows
+    .map(
+      (row) =>
+        `<li><strong>${escapeHtml(row.fullName)}</strong>${row.matricNo ? ` (${escapeHtml(row.matricNo)})` : ""} — attended ${row.attendedCount} of ${classes(heldSessions)} (${row.attendancePercent}%) — ${DELIVERY_TEXT[row.delivery.status](row)}</li>`
+    )
+    .join("");
+
+  return {
+    subject: `Copy: attendance warning sent for ${courseCode} — Veritas Attendance`,
+    html: `
+      ${greeting}
+      <p>You warned <strong>${rows.length} ${rows.length === 1 ? "student" : "students"}</strong> in ${course} that they can no longer reach the exam attendance minimum. Here is who was warned and how delivery went:</p>
+      <ul>${items}</ul>
+      <p>Each student was emailed their own figures and told to speak to you, and everyone was also notified in the app.</p>
+    `,
+  };
+}
+
 /**
  * The text of the in-app copy of the alert. The same for every student — an
  * in-app notification is one event shared by all its recipients — so the
@@ -105,13 +165,15 @@ export function buildAtRiskInAppNotice({ courseCode, courseTitle, minPercentageF
  * @param {{ courseCode: string, courseTitle: string }} args.course
  * @param {string|null} args.lecturerName
  * @returns {{
- *   atRisk: Array<{ id: string, fullName: string }>,
+ *   heldSessions: number,
+ *   atRisk: Array<{ id: string, fullName: string, matricNo: string|null, attendedCount: number, attendancePercent: number }>,
  *   emails: Array<{ studentId: string, fullName: string, message: { to: string, subject: string, html: string } }>,
  *   noAddress: Array<{ studentId: string, fullName: string }>
  * }}
- *   `atRisk` is every student the table marks At Risk, in the table's order.
- *   Of those, `emails` are the ones with an address; `noAddress` are the rest
- *   — they still get the in-app notification.
+ *   `atRisk` is every student the table marks At Risk, in the table's order,
+ *   with the figures the lecturer's copy lists. Of those, `emails` are the
+ *   ones with an address; `noAddress` are the rest — they still get the
+ *   in-app notification.
  */
 export function planAtRiskNotification({ matrix, usersById, course, lecturerName }) {
   const heldSessions = matrix.sessions.length;
@@ -122,16 +184,22 @@ export function planAtRiskNotification({ matrix, usersById, course, lecturerName
   for (const student of matrix.students) {
     if (student.eligibility !== "AT_RISK") continue;
 
-    atRisk.push({ id: student.id, fullName: student.fullName });
+    // "incomplete" still counts as attended, the same as in the percentage.
+    const attendedCount = student.attendance.filter((status) => status === "present" || status === "incomplete").length;
+
+    atRisk.push({
+      id: student.id,
+      fullName: student.fullName,
+      matricNo: student.matricNo ?? null,
+      attendedCount,
+      attendancePercent: student.attendancePercent,
+    });
 
     const email = usersById.get(student.id)?.email?.trim();
     if (!email) {
       noAddress.push({ studentId: student.id, fullName: student.fullName });
       continue;
     }
-
-    // "incomplete" still counts as attended, the same as in the percentage.
-    const attendedCount = student.attendance.filter((status) => status === "present" || status === "incomplete").length;
 
     emails.push({
       studentId: student.id,
@@ -156,5 +224,5 @@ export function planAtRiskNotification({ matrix, usersById, course, lecturerName
     });
   }
 
-  return { atRisk, emails, noAddress };
+  return { heldSessions, atRisk, emails, noAddress };
 }

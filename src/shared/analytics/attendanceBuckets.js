@@ -1,15 +1,17 @@
 /**
- * @file The rule that turns a student's `session_attendance` row (plus that
+ * @file The rules that turn a student's `session_attendance` row (plus that
  * row's `attendance_checks`) into one of four display buckets — Present,
- * Incomplete, Absent, Flagged — so every screen that shows "what happened to
- * this student in this class" agrees.
+ * Incomplete, Absent, Flagged — and into the list of verification problems
+ * behind it, so every screen that shows "what happened to this student in this
+ * class" agrees.
  *
  * @remarks
  * Shared by the Class Attendance Record ("roster",
- * `lecturer/roster/rosterCalculations.js`) and the Course Details attendance
- * matrix (`lecturer/course-details/attendanceMatrixCalculations.js`): the
- * same student in the same session must read the same in both, so the rule
- * lives once, here. No database access — callers pass the rows.
+ * `lecturer/roster/rosterCalculations.js`), the Course Details attendance
+ * matrix (`lecturer/course-details/attendanceMatrixCalculations.js`) and the
+ * Dashboard's review queue (`lecturer/dashboard/`): the same student in the
+ * same session must read the same everywhere, so the rules live once, here.
+ * No database access — callers pass the rows.
  *
  * `session_attendance.status` only has four real values (PRESENT, LATE,
  * FLAGGED, ABSENT — LEFT_EARLY is defined in the schema but never set by any
@@ -75,3 +77,49 @@ export function classifyAttendanceBucket(attendanceRow, checksForRow) {
 
   return "Flagged";
 }
+
+/**
+ * The specific verification problems behind a student's row this session,
+ * for display as badges (e.g. "GPS Failed"). Independent of
+ * {@link classifyAttendanceBucket} — a student can be bucketed "Present"
+ * and still show a past issue that later resolved itself (e.g. one failed
+ * check followed by a passing one), so this is its own pass over the same
+ * checks rather than a side effect of the bucket decision.
+ *
+ * @param {object|null} attendanceRow - Their `session_attendance` row for this session, or null.
+ * @param {object[]} checksForRow - That row's `attendance_checks` rows.
+ * @param {{ scheduled_start_at: string, actual_end_at: string|null }} session - The class session.
+ * @param {number} lateThresholdMinutes - Minutes after `scheduled_start_at` that still counts as on time
+ *   (see `LATE_THRESHOLD_MINUTES` in `sessionAttendanceService.js` — the same threshold that decides
+ *   PRESENT vs LATE at join time).
+ * @param {number} checkIntervalMinutes - The server-enforced spacing between checks (`CHECK_INTERVAL_MINUTES`)
+ *   — a check is only "missing" if none landed within this many minutes of the session ending.
+ * @returns {string[]} Zero or more of "GPS Failed", "Late Joined", "Missing Final Check", "Multiple Failed Checks".
+ */
+export function buildVerificationIssues(attendanceRow, checksForRow, session, lateThresholdMinutes, checkIntervalMinutes) {
+  if (!attendanceRow) return [];
+
+  const issues = [];
+
+  if (checksForRow.some((check) => check.gps_outcome === "FAILED")) {
+    issues.push("GPS Failed");
+  }
+
+  if (attendanceRow.join_time && session.scheduled_start_at) {
+    const minutesLate = (new Date(attendanceRow.join_time).getTime() - new Date(session.scheduled_start_at).getTime()) / 60000;
+    if (minutesLate > lateThresholdMinutes) issues.push("Late Joined");
+  }
+
+  if (session.actual_end_at) {
+    const finalWindowStart = new Date(session.actual_end_at).getTime() - checkIntervalMinutes * 60000;
+    const hasCheckNearTheEnd = checksForRow.some((check) => new Date(check.checked_at).getTime() >= finalWindowStart);
+    if (!hasCheckNearTheEnd) issues.push("Missing Final Check");
+  }
+
+  if (checksForRow.filter((check) => check.overall_match === false).length >= 2) {
+    issues.push("Multiple Failed Checks");
+  }
+
+  return issues;
+}
+

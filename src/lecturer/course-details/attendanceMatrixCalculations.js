@@ -25,28 +25,7 @@
  */
 import { classifyAttendanceBucket } from "../../shared/analytics/attendanceBuckets.js";
 import { classifyEligibility, studentAttendancePercent } from "../../shared/analytics/attendanceCalculations.js";
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-/** "YYYY-MM-DD" -> the UTC midnight of that calendar date, in ms (no time-zone or DST drift). */
-const dateToUtcMs = (isoDate) => {
-  const [year, month, day] = String(isoDate).split("-").map(Number);
-  return Date.UTC(year, month - 1, day);
-};
-
-/**
- * The teaching week a session date falls in, counted from the academic
- * session's start date: the start date's own week is week 1.
- *
- * @param {string} sessionDate - "YYYY-MM-DD".
- * @param {string|null|undefined} termStartDate - "YYYY-MM-DD" start of the current academic session, if it has one.
- * @returns {number|null} 1, 2, 3 …; null when the term has no start date or the date is before it.
- */
-export function teachingWeekNumber(sessionDate, termStartDate) {
-  if (!termStartDate) return null;
-  const days = Math.floor((dateToUtcMs(sessionDate) - dateToUtcMs(termStartDate)) / MS_PER_DAY);
-  return days < 0 ? null : Math.floor(days / 7) + 1;
-}
+import { teachingWeekNumber } from "../../shared/analytics/teachingWeeks.js";
 
 /**
  * The matrix's columns: the held sessions, oldest first.

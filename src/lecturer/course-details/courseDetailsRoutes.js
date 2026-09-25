@@ -104,10 +104,15 @@ courseDetailsRoutes.get("/attendance-matrix", requireAuth, requireRole("Lecturer
  *       recipients are decided by the server; the request only names the
  *       course. Each student gets an email with their own numbers (skipped for
  *       a student with no email address) and everyone gets an in-app
- *       notification. Returns how many were reached and which emails failed.
- *       A failed email doesn't undo the rest and isn't retried. After an
- *       alert, the same course can't be alerted again until the cooldown
- *       passes (429, default 60 minutes).
+ *       notification. The lecturer is then emailed a copy: who was warned and
+ *       how delivery went for each. Returns how many were reached, which
+ *       emails failed and how the lecturer's copy went. A failed email doesn't
+ *       undo the rest and isn't retried. After an alert, the same course can't
+ *       be alerted again until the cooldown passes (429, default 60 minutes).
+ *       TEMPORARY testing switch (AT_RISK_NOTIFY_ALLOW_EMPTY_FOR_TESTING in
+ *       config/attendancePolicy.js, currently on): with no student at risk it
+ *       still runs, emailing only the lecturer a test message, instead of
+ *       returning 400.
  *     tags: [Course Details]
  *     security:
  *       - cookieAuth: []
@@ -124,9 +129,9 @@ courseDetailsRoutes.get("/attendance-matrix", requireAuth, requireRole("Lecturer
  *       200:
  *         description: >
  *           `{ atRiskCount, inAppNotifiedCount, emailedCount, failedEmails: [{ studentId, fullName, error }],
- *           noEmailAddress: [{ studentId, fullName }] }`
+ *           noEmailAddress: [{ studentId, fullName }], lecturerCopy: { status: sent|failed|no_address, error? } }`
  *       400:
- *         description: courseId is missing, or no students are at risk
+ *         description: courseId is missing, or no students are at risk (unless the testing switch is on)
  *       403:
  *         description: Not a Lecturer
  *       404:

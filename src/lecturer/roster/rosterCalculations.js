@@ -1,8 +1,7 @@
 /**
  * @file Pure logic behind the Class Attendance Record ("roster") page for
- * one held session: listing each enrolled student's verification issues, and
- * rolling their display buckets up into the sidebar's breakdown and the
- * flagged-review list.
+ * one held session: building one row per enrolled student, and rolling their
+ * display buckets up into the sidebar's breakdown and the flagged-review list.
  *
  * @remarks
  * No database access and no clock reads — `rosterService.js` gathers the
@@ -12,62 +11,19 @@
  * uses.
  *
  * The bucket itself — Present, Incomplete, Absent or Flagged, and how each is
- * derived from the stored status plus the session's checks — is decided by
- * `classifyAttendanceBucket` in `shared/analytics/attendanceBuckets.js`,
- * because the Course Details attendance matrix must show the same bucket for
- * the same student and session. "Incomplete" is not a database status, and a lecturer's Override
+ * derived from the stored status plus the session's checks — and the list of
+ * a row's verification issues are decided in
+ * `shared/analytics/attendanceBuckets.js` (`classifyAttendanceBucket`,
+ * `buildVerificationIssues`), because the Course Details attendance matrix and
+ * the Dashboard's review queue must show the same for the same student and
+ * session. "Incomplete" is not a database status, and a lecturer's Override
  * can only write the four real ones (`overrideAttendance` in
  * `shared/session-attendance/sessionAttendanceService.js`).
  */
-import { classifyAttendanceBucket } from "../../shared/analytics/attendanceBuckets.js";
+import { buildVerificationIssues, classifyAttendanceBucket } from "../../shared/analytics/attendanceBuckets.js";
 
 /** The roster's own display statuses — `classifyAttendanceBucket` (shared/analytics/attendanceBuckets.js) says how each is derived. */
 export const ROSTER_STATUSES = ["Present", "Incomplete", "Absent", "Flagged"];
-
-/**
- * The specific verification problems behind a student's row this session,
- * for display as badges (e.g. "GPS Failed"). Independent of
- * {@link classifyAttendanceBucket} — a student can be bucketed "Present"
- * and still show a past issue that later resolved itself (e.g. one failed
- * check followed by a passing one), so this is its own pass over the same
- * checks rather than a side effect of the bucket decision.
- *
- * @param {object|null} attendanceRow - Their `session_attendance` row for this session, or null.
- * @param {object[]} checksForRow - That row's `attendance_checks` rows.
- * @param {{ scheduled_start_at: string, actual_end_at: string|null }} session - The class session.
- * @param {number} lateThresholdMinutes - Minutes after `scheduled_start_at` that still counts as on time
- *   (see `LATE_THRESHOLD_MINUTES` in `sessionAttendanceService.js` — the same threshold that decides
- *   PRESENT vs LATE at join time).
- * @param {number} checkIntervalMinutes - The server-enforced spacing between checks (`CHECK_INTERVAL_MINUTES`)
- *   — a check is only "missing" if none landed within this many minutes of the session ending.
- * @returns {string[]} Zero or more of "GPS Failed", "Late Joined", "Missing Final Check", "Multiple Failed Checks".
- */
-export function buildVerificationIssues(attendanceRow, checksForRow, session, lateThresholdMinutes, checkIntervalMinutes) {
-  if (!attendanceRow) return [];
-
-  const issues = [];
-
-  if (checksForRow.some((check) => check.gps_outcome === "FAILED")) {
-    issues.push("GPS Failed");
-  }
-
-  if (attendanceRow.join_time && session.scheduled_start_at) {
-    const minutesLate = (new Date(attendanceRow.join_time).getTime() - new Date(session.scheduled_start_at).getTime()) / 60000;
-    if (minutesLate > lateThresholdMinutes) issues.push("Late Joined");
-  }
-
-  if (session.actual_end_at) {
-    const finalWindowStart = new Date(session.actual_end_at).getTime() - checkIntervalMinutes * 60000;
-    const hasCheckNearTheEnd = checksForRow.some((check) => new Date(check.checked_at).getTime() >= finalWindowStart);
-    if (!hasCheckNearTheEnd) issues.push("Missing Final Check");
-  }
-
-  if (checksForRow.filter((check) => check.overall_match === false).length >= 2) {
-    issues.push("Multiple Failed Checks");
-  }
-
-  return issues;
-}
 
 /**
  * Builds one roster row per enrolled student, for a single held session.
